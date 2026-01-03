@@ -46,11 +46,19 @@ function App() {
 
   const handleLogin = (userData: User) => {
     setUser(userData);
+    setCurrentView('dashboard'); // Réinitialiser la vue après connexion
   };
 
   const handleLogout = () => {
+    // Fermer le menu mobile si ouvert
+    setMobileMenuOpen(false);
+    
+    // Déconnexion
     auth.logout();
+    
+    // Réinitialiser l'état
     setUser(null);
+    setCurrentView('dashboard');
   };
 
   const navigation = [
