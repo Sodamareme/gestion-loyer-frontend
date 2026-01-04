@@ -1,24 +1,29 @@
 import { useState, useEffect } from 'react';
-import { Home, Users, Building2, FileText, DollarSign, TrendingUp, ArrowUpRight, Calendar, Search, Filter, ChevronDown, X, Clock, CheckCircle, TrendingDown } from 'lucide-react';
-import api, { Bien, Paiement } from '../services/api';
+import { Home, Users, Building2, FileText, DollarSign, TrendingUp, Calendar, Target, AlertTriangle } from 'lucide-react';
+import api from '../services/api';
 
-type PeriodFilter = 'month' | '3months' | '6months' | 'year' | 'all';
+interface Stats {
+  totalProprietaires: number;
+  totalLocataires: number;
+  totalBiens: number;
+  biensDisponibles: number;
+  biensLoues: number;
+  totalContrats: number;
+  contratsActifs: number;
+  totalPaiements: number;
+  montantPaiementsMoisActuel: number;
+  montantAttenduMoisActuel: number;
+  tauxCollecte: number;
+  derniersPaiements: any[];
+  contratsExpirantBientot: any[];
+  objectifMensuel: number;
+  progression: number;
+}
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalBiens: 0,
-    biensLoues: 0,
-    biensDisponibles: 0,
-    contratsActifs: 0,
-    totalPaiementsMois: 0,
-    derniersPaiements: [] as Paiement[],
-  });
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
-  const [showAllPayments, setShowAllPayments] = useState(false);
-  const [allPaiements, setAllPaiements] = useState<Paiement[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadStats();
@@ -26,409 +31,339 @@ export default function Dashboard() {
 
   const loadStats = async () => {
     try {
-      const [biens, contratsActifs, paiements] = await Promise.all([
+      const [
+        proprietaires,
+        locataires,
+        biens,
+        contrats,
+        paiements,
+        contratsActifs
+      ] = await Promise.all([
+        api.proprietaires.getAll(),
+        api.locataires.getAll(),
         api.biens.getAll(),
-        api.contrats.getActifs(),
+        api.contrats.getAll(),
         api.paiements.getAll(),
+        api.contrats.getActifs()
       ]);
 
-      const biensLoues = biens.filter((b: Bien) => b.statut === 'loue').length;
-      const biensDisponibles = biens.filter((b: Bien) => b.statut === 'disponible').length;
+      // Calculer le montant attendu du mois (somme des loyers des contrats actifs)
+      const montantAttendu = contratsActifs.reduce((sum: number, c: any) => {
+        return sum + (Number(c.montant_loyer) || 0);
+      }, 0);
 
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const paiementsMois = paiements.filter((p: Paiement) => p.mois_concerne?.startsWith(currentMonth));
-      const totalPaiementsMois = paiementsMois.reduce((sum: number, p: Paiement) => sum + Number(p.montant_paye), 0);
+      // Calculer les paiements du mois en cours
+      const now = new Date();
+      const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+      const finMois = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      setAllPaiements(paiements);
-      setStats({
-        totalBiens: biens.length,
-        biensLoues,
-        biensDisponibles,
-        contratsActifs: contratsActifs.length,
-        totalPaiementsMois,
-        derniersPaiements: paiements.slice(0, 5),
+      const paiementsMois = paiements.filter((p: any) => {
+        const datePaiement = new Date(p.date_paiement);
+        return datePaiement >= debutMois && datePaiement <= finMois;
       });
-    } catch (error) {
-      console.error('Erreur lors du chargement des statistiques:', error);
+
+      const montantPayeMois = paiementsMois.reduce((sum: number, p: any) => {
+        return sum + (Number(p.montant_paye) || 0);
+      }, 0);
+
+      // Calculer le taux de collecte
+      const tauxCollecte = montantAttendu > 0 
+        ? Math.round((montantPayeMois / montantAttendu) * 100) 
+        : 0;
+
+      // Objectif mensuel = montant attendu
+      const objectifMensuel = montantAttendu;
+      const progression = tauxCollecte;
+
+      // Derniers paiements (5 derniers)
+      const derniersPaiements = paiements
+        .sort((a: any, b: any) => new Date(b.date_paiement).getTime() - new Date(a.date_paiement).getTime())
+        .slice(0, 5);
+
+      // Contrats expirant dans les 30 jours
+      const dans30Jours = new Date();
+      dans30Jours.setDate(dans30Jours.getDate() + 30);
+
+      const contratsExpirants = contratsActifs.filter((c: any) => {
+        const dateFin = new Date(c.date_fin);
+        return dateFin <= dans30Jours && dateFin >= now;
+      });
+
+      setStats({
+        totalProprietaires: proprietaires.length,
+        totalLocataires: locataires.length,
+        totalBiens: biens.length,
+        biensDisponibles: biens.filter((b: any) => b.statut === 'disponible').length,
+        biensLoues: biens.filter((b: any) => b.statut === 'loue').length,
+        totalContrats: contrats.length,
+        contratsActifs: contratsActifs.length,
+        totalPaiements: paiements.length,
+        montantPaiementsMoisActuel: montantPayeMois,
+        montantAttenduMoisActuel: montantAttendu,
+        tauxCollecte,
+        derniersPaiements,
+        contratsExpirantBientot: contratsExpirants,
+        objectifMensuel,
+        progression
+      });
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des statistiques:', err);
+      setError(err.message || 'Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
   };
 
-  const getFilteredPaiements = () => {
-    let filtered = showAllPayments ? allPaiements : stats.derniersPaiements;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (p) =>
-          p.locataire_nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.bien_adresse?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.reference?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (periodFilter !== 'all') {
-      const now = new Date();
-      const filterDate = new Date();
-
-      switch (periodFilter) {
-        case 'month':
-          filterDate.setMonth(now.getMonth() - 1);
-          break;
-        case '3months':
-          filterDate.setMonth(now.getMonth() - 3);
-          break;
-        case '6months':
-          filterDate.setMonth(now.getMonth() - 6);
-          break;
-        case 'year':
-          filterDate.setFullYear(now.getFullYear() - 1);
-          break;
-      }
-
-      filtered = filtered.filter((p) => new Date(p.date_paiement) >= filterDate);
-    }
-
-    return filtered;
-  };
-
-  const filteredPaiements = getFilteredPaiements();
-
-  const getTotalFiltered = () => {
-    return filteredPaiements.reduce((sum, p) => sum + Number(p.montant_paye), 0);
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-slate-200 rounded-full"></div>
-          <div className="w-16 h-16 border-t-4 border-blue-600 rounded-full animate-spin absolute top-0 left-0"></div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <p className="text-red-800 font-medium">{error}</p>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
+  const getMoisActuel = () => {
+    return new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-600 rounded-xl">
-                <Home className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
-                  Tableau de bord
-                </h1>
-                <p className="text-sm text-slate-500 mt-0.5">Vue d'ensemble de votre gestion immobilière</p>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* En-tête */}
+      <div className="flex items-center gap-3">
+        <Home className="w-8 h-8 text-blue-600" />
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Tableau de bord</h1>
+          <p className="text-sm text-gray-500 mt-1">Vue d'ensemble de votre activité</p>
+        </div>
+      </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200">
-                <Calendar className="w-4 h-4 text-slate-600" />
-                <span className="text-sm font-medium text-slate-700">
-                  {new Date().toLocaleDateString('fr-FR', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric' 
-                  })}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200">
-                <Clock className="w-4 h-4 text-slate-600" />
-                <span className="text-sm font-medium text-slate-700">
-                  {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
+      {/* Cartes statistiques principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <Users className="w-8 h-8 opacity-80" />
+            <span className="text-3xl font-bold">{stats.totalProprietaires}</span>
+          </div>
+          <h3 className="text-sm font-medium opacity-90">Propriétaires</h3>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <Users className="w-8 h-8 opacity-80" />
+            <span className="text-3xl font-bold">{stats.totalLocataires}</span>
+          </div>
+          <h3 className="text-sm font-medium opacity-90">Locataires</h3>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <Building2 className="w-8 h-8 opacity-80" />
+            <div className="text-right">
+              <span className="text-3xl font-bold">{stats.totalBiens}</span>
+              <p className="text-xs opacity-80 mt-1">
+                {stats.biensDisponibles} dispo • {stats.biensLoues} loués
+              </p>
             </div>
+          </div>
+          <h3 className="text-sm font-medium opacity-90">Biens</h3>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <FileText className="w-8 h-8 opacity-80" />
+            <div className="text-right">
+              <span className="text-3xl font-bold">{stats.contratsActifs}</span>
+              <p className="text-xs opacity-80 mt-1">actifs / {stats.totalContrats} total</p>
+            </div>
+          </div>
+          <h3 className="text-sm font-medium opacity-90">Contrats</h3>
+        </div>
+      </div>
+
+      {/* Objectif mensuel dynamique */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-teal-100 p-3 rounded-lg">
+              <Target className="w-6 h-6 text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">Objectif mensuel</h3>
+              <p className="text-sm text-gray-500 capitalize">{getMoisActuel()}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-teal-600">{stats.progression}%</p>
+            <p className="text-xs text-gray-500">de l'objectif</p>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            icon={<Building2 className="w-6 h-6" />}
-            title="Total Biens"
-            value={stats.totalBiens}
-            iconBg="bg-blue-600"
-            trend="+12%"
-            trendUp={true}
-          />
-          <StatCard
-            icon={<FileText className="w-6 h-6" />}
-            title="Contrats Actifs"
-            value={stats.contratsActifs}
-            iconBg="bg-emerald-600"
-            trend="+8%"
-            trendUp={true}
-          />
-          <StatCard
-            icon={<CheckCircle className="w-6 h-6" />}
-            title="Biens Loués"
-            value={stats.biensLoues}
-            iconBg="bg-amber-600"
-            trend="+5%"
-            trendUp={true}
-          />
-          <StatCard
-            icon={<TrendingUp className="w-6 h-6" />}
-            title="Biens Disponibles"
-            value={stats.biensDisponibles}
-            iconBg="bg-slate-600"
-            trend="-3%"
-            trendUp={false}
-          />
-        </div>
-
-        {/* Revenus du mois */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-emerald-600 rounded-xl">
-                <DollarSign className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Revenus du mois</h2>
-                <p className="text-sm text-slate-500">Performance mensuelle</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg border border-emerald-200">
-              <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-semibold text-emerald-600">+15.3%</span>
-            </div>
-          </div>
-          
-          <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-4xl font-bold text-emerald-600">
-              {stats.totalPaiementsMois.toLocaleString('fr-FR')}
-            </span>
-            <span className="text-xl font-medium text-slate-500">FCFA</span>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-600">Objectif mensuel</span>
-              <span className="font-semibold text-emerald-600">75% atteint</span>
-            </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-600 rounded-full w-3/4"></div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-200">
-            <div className="text-center">
-              <p className="text-xs text-slate-500 font-medium mb-1">Cette semaine</p>
-              <p className="text-lg font-bold text-slate-800">{(stats.totalPaiementsMois * 0.25).toLocaleString('fr-FR')}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-slate-500 font-medium mb-1">Moy. journalière</p>
-              <p className="text-lg font-bold text-slate-800">{(stats.totalPaiementsMois / 30).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-slate-500 font-medium mb-1">Prévision</p>
-              <p className="text-lg font-bold text-emerald-600">{(stats.totalPaiementsMois * 1.15).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Paiements Section */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-600 rounded-xl">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Historique Paiements</h2>
-                <p className="text-sm text-slate-500">
-                  {filteredPaiements.length} transaction(s) • {getTotalFiltered().toLocaleString('fr-FR')} FCFA
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors text-slate-700 font-medium"
-            >
-              <Filter className="w-4 h-4" />
-              Filtres
-              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
-
-          {showFilters && (
-            <div className="mb-6 p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Rechercher
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Locataire, bien, référence..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
-                    />
-                    {searchTerm && (
-                      <button
-                        onClick={() => setSearchTerm('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Période
-                  </label>
-                  <select
-                    value={periodFilter}
-                    onChange={(e) => setPeriodFilter(e.target.value as PeriodFilter)}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
-                  >
-                    <option value="month">Ce mois</option>
-                    <option value="3months">3 derniers mois</option>
-                    <option value="6months">6 derniers mois</option>
-                    <option value="year">Cette année</option>
-                    <option value="all">Tout</option>
-                  </select>
+        {/* Barre de progression */}
+        <div className="space-y-4">
+          <div className="relative">
+            <div className="h-8 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  stats.progression >= 100
+                    ? 'bg-gradient-to-r from-green-500 to-green-600'
+                    : stats.progression >= 75
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600'
+                    : stats.progression >= 50
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                    : 'bg-gradient-to-r from-orange-500 to-orange-600'
+                }`}
+                style={{ width: `${Math.min(stats.progression, 100)}%` }}
+              >
+                <div className="h-full flex items-center justify-end pr-3">
+                  {stats.progression >= 20 && (
+                    <span className="text-xs font-bold text-white">
+                      {stats.progression}%
+                    </span>
+                  )}
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-200">
-                <button
-                  onClick={() => setShowAllPayments(!showAllPayments)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-                >
-                  {showAllPayments ? 'Afficher les 5 derniers' : 'Afficher tout'}
-                </button>
+          {/* Détails */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+              <p className="text-xs font-medium text-blue-600 mb-1">Attendu</p>
+              <p className="text-xl font-bold text-blue-700">
+                {stats.montantAttenduMoisActuel.toLocaleString('fr-FR')} FCFA
+              </p>
+            </div>
 
-                {(searchTerm || periodFilter !== 'month') && (
-                  <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setPeriodFilter('month');
-                    }}
-                    className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium flex items-center justify-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Réinitialiser
-                  </button>
-                )}
-              </div>
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+              <p className="text-xs font-medium text-green-600 mb-1">Collecté</p>
+              <p className="text-xl font-bold text-green-700">
+                {stats.montantPaiementsMoisActuel.toLocaleString('fr-FR')} FCFA
+              </p>
+            </div>
+
+            <div className={`rounded-lg p-4 ${
+              stats.progression >= 100
+                ? 'bg-gradient-to-br from-green-50 to-green-100'
+                : 'bg-gradient-to-br from-orange-50 to-orange-100'
+            }`}>
+              <p className={`text-xs font-medium mb-1 ${
+                stats.progression >= 100 ? 'text-green-600' : 'text-orange-600'
+              }`}>
+                Restant
+              </p>
+              <p className={`text-xl font-bold ${
+                stats.progression >= 100 ? 'text-green-700' : 'text-orange-700'
+              }`}>
+                {Math.max(0, stats.montantAttenduMoisActuel - stats.montantPaiementsMoisActuel).toLocaleString('fr-FR')} FCFA
+              </p>
+            </div>
+          </div>
+
+          {/* Message d'état */}
+          {stats.progression >= 100 ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              <p className="text-sm text-green-800 font-medium">
+                🎉 Objectif atteint ! Félicitations !
+              </p>
+            </div>
+          ) : stats.progression >= 75 ? (
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 text-teal-600" />
+              <p className="text-sm text-teal-800 font-medium">
+                Excellent ! Plus que {100 - stats.progression}% pour atteindre l'objectif.
+              </p>
+            </div>
+          ) : stats.progression >= 50 ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+              <Target className="w-5 h-5 text-blue-600" />
+              <p className="text-sm text-blue-800 font-medium">
+                Bon rythme ! Continuez ainsi pour atteindre l'objectif.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
+              <p className="text-sm text-orange-800 font-medium">
+                Attention ! Seulement {stats.progression}% de l'objectif collecté.
+              </p>
             </div>
           )}
+        </div>
+      </div>
 
+      {/* Section inférieure */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Derniers paiements */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <DollarSign className="w-6 h-6 text-green-600" />
+            <h3 className="text-lg font-semibold text-gray-800">Derniers paiements</h3>
+          </div>
           <div className="space-y-3">
-            {filteredPaiements.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-3">
-                  <DollarSign className="w-8 h-8 text-slate-400" />
-                </div>
-                <p className="text-slate-600 font-medium">
-                  {searchTerm || periodFilter !== 'month' ? 'Aucun paiement trouvé' : 'Aucun paiement enregistré'}
-                </p>
-                <p className="text-sm text-slate-400 mt-1">
-                  {searchTerm || periodFilter !== 'month'
-                    ? 'Essayez de modifier vos filtres'
-                    : 'Les paiements apparaîtront ici'}
-                </p>
-              </div>
-            ) : (
-              filteredPaiements.map((paiement) => (
-                <div
-                  key={paiement.id}
-                  className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {paiement.locataire_nom?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-800 truncate">
-                        {paiement.locataire_nom}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-sm text-slate-500 flex items-center gap-1 truncate">
-                          <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate">{paiement.bien_adresse}</span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col sm:items-end gap-1 flex-shrink-0">
-                    <p className="font-bold text-lg text-emerald-600">
-                      {Number(paiement.montant_paye).toLocaleString('fr-FR')} FCFA
+            {stats.derniersPaiements.length > 0 ? (
+              stats.derniersPaiements.map((p: any) => (
+                <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div>
+                    <p className="font-medium text-gray-800">{p.locataire_nom}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(p.date_paiement).toLocaleDateString('fr-FR')}
                     </p>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {new Date(paiement.date_paiement).toLocaleDateString('fr-FR')}
-                      </span>
-                      <span className="px-2 py-0.5 bg-blue-50 rounded text-blue-600 text-xs font-medium">
-                        {paiement.mode_paiement}
-                      </span>
-                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">
+                      {Number(p.montant_paye).toLocaleString('fr-FR')} FCFA
+                    </p>
+                    <p className="text-xs text-gray-500">{p.mode_paiement}</p>
                   </div>
                 </div>
               ))
+            ) : (
+              <p className="text-gray-500 text-center py-8">Aucun paiement enregistré</p>
+            )}
+          </div>
+        </div>
+
+        {/* Contrats expirant bientôt */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <Calendar className="w-6 h-6 text-orange-600" />
+            <h3 className="text-lg font-semibold text-gray-800">Contrats expirant bientôt</h3>
+          </div>
+          <div className="space-y-3">
+            {stats.contratsExpirantBientot.length > 0 ? (
+              stats.contratsExpirantBientot.map((c: any) => (
+                <div key={c.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <div>
+                    <p className="font-medium text-gray-800">{c.locataire_nom}</p>
+                    <p className="text-xs text-gray-600">{c.bien_adresse}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-orange-600">
+                      {new Date(c.date_fin).toLocaleDateString('fr-FR')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {Math.ceil((new Date(c.date_fin).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} jours
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-8">Aucun contrat n'expire prochainement</p>
             )}
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatCard({
-  icon,
-  title,
-  value,
-  iconBg,
-  trend,
-  trendUp,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: number;
-  iconBg: string;
-  trend: string;
-  trendUp: boolean;
-}) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-200 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-2.5 ${iconBg} rounded-lg`}>
-          <div className="text-white">{icon}</div>
-        </div>
-        <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${
-          trendUp ? 'bg-emerald-50' : 'bg-red-50'
-        }`}>
-          {trendUp ? (
-            <ArrowUpRight className="w-3 h-3 text-emerald-600" />
-          ) : (
-            <TrendingDown className="w-3 h-3 text-red-600" />
-          )}
-          <span className={`text-xs font-semibold ${
-            trendUp ? 'text-emerald-600' : 'text-red-600'
-          }`}>
-            {trend}
-          </span>
-        </div>
-      </div>
-      <p className="text-slate-600 text-sm font-medium mb-1">{title}</p>
-      <p className="text-3xl font-bold text-slate-800">{value}</p>
     </div>
   );
 }
