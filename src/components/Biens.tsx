@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Building2, Plus, MapPin, Home, Maximize, CheckCircle, XCircle, Edit2, Trash2, AlertCircle, Search, Filter, ChevronDown, X } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:3000/api';
 
 console.log('🔗 API URL (Biens):', API_BASE_URL); // Pour debug
 

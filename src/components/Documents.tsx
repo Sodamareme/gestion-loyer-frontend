@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { FileText, Download, Calendar, AlertCircle, CheckCircle, Printer, Eye, RefreshCw, Shield } from 'lucide-react';
 import api, { auth, Contrat, Paiement } from '../services/api';
 import NotificationsEcheances from './NotificationsEcheances';
-const API_BASE_URL = 'http://localhost:3000/api';
-
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:3000/api';
 export default function Documents() {
   const [activeTab, setActiveTab] = useState<'quittance' | 'avis' | 'caution'>('quittance');
   const [contrats, setContrats] = useState<Contrat[]>([]);

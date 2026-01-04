@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { DollarSign, Plus, Calendar, CreditCard, User, Building2, Download, Search, Filter, X, ArrowUpDown } from 'lucide-react';
 import api, { Paiement, Contrat } from '../services/api';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:3000/api';
 
 export default function Paiements() {
   const [editingId, setEditingId] = useState<number | null>(null);
