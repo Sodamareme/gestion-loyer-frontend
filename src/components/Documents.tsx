@@ -2,9 +2,15 @@ import { useState, useEffect } from 'react';
 import { FileText, Download, Calendar, AlertCircle, CheckCircle, Printer, Eye, RefreshCw, Shield } from 'lucide-react';
 import api, { auth, Contrat, Paiement } from '../services/api';
 import NotificationsEcheances from './NotificationsEcheances';
+
+// ✅ CORRECTION: Utiliser la configuration centralisée
 const API_BASE_URL = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api`
   : 'http://localhost:3000/api';
+
+// ✅ CORRECTION: URL de base pour les documents
+const DOCUMENTS_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export default function Documents() {
   const [activeTab, setActiveTab] = useState<'quittance' | 'avis' | 'caution'>('quittance');
   const [contrats, setContrats] = useState<Contrat[]>([]);
@@ -28,13 +34,17 @@ export default function Documents() {
     try {
       const token = auth.getToken();
       
+      // ✅ CORRECTION: Utiliser API_BASE_URL au lieu de localhost
       const [contratsData, paiementsData] = await Promise.all([
-        fetch('http://localhost:3000/api/contrats?statut=actif', {
+        fetch(`${API_BASE_URL}/contrats?statut=actif`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }).then(r => {
           if (r.status === 401) {
             auth.logout();
             throw new Error('Session expirée');
+          }
+          if (!r.ok) {
+            throw new Error('Erreur lors du chargement des contrats');
           }
           return r.json();
         }),
@@ -44,7 +54,8 @@ export default function Documents() {
       setContrats(contratsData);
       setPaiements(paiementsData);
     } catch (error: any) {
-      setMessage({ type: 'error', text: 'Erreur lors du chargement des données' });
+      console.error('Erreur chargement:', error);
+      setMessage({ type: 'error', text: error.message || 'Erreur lors du chargement des données' });
     } finally {
       setLoadingData(false);
     }
@@ -102,6 +113,7 @@ export default function Documents() {
     setGeneratedUrl(null);
 
     try {
+      const token = auth.getToken();
       let moisFormatted = moisConcerne;
       if (moisFormatted && moisFormatted.length === 7) {
         moisFormatted = `${moisFormatted}-01`;
@@ -111,9 +123,17 @@ export default function Documents() {
 
       const res = await fetch(`${API_BASE_URL}/pdf/avis-echeance/${selectedContrat}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ mois_concerne: moisFormatted }),
       });
+
+      if (res.status === 401) {
+        auth.logout();
+        throw new Error('Session expirée');
+      }
 
       if (!res.ok) {
         const error = await res.json();
@@ -147,13 +167,22 @@ export default function Documents() {
     setGeneratedUrl(null);
 
     try {
+      const token = auth.getToken();
       console.log('Génération caution pour contrat:', selectedContrat, 'montant:', montantCaution);
 
       const res = await fetch(`${API_BASE_URL}/pdf/quittance-caution/${selectedContrat}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ montant_caution: Number(montantCaution) }),
       });
+
+      if (res.status === 401) {
+        auth.logout();
+        throw new Error('Session expirée');
+      }
 
       if (!res.ok) {
         const error = await res.json();
@@ -171,9 +200,10 @@ export default function Documents() {
     }
   };
 
+  // ✅ CORRECTION: Utiliser DOCUMENTS_BASE_URL pour télécharger
   const handleDownload = () => {
     if (generatedUrl) {
-      window.open(`http://localhost:3000${generatedUrl}`, '_blank');
+      window.open(`${DOCUMENTS_BASE_URL}${generatedUrl}`, '_blank');
     }
   };
 
