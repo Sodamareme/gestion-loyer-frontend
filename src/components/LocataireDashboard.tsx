@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Home, DollarSign, FileText, Upload, Camera, LogOut, Download, CheckCircle, AlertCircle, Calendar, Droplet, CreditCard, X, Eye, Bell, AlertTriangle, Sparkles, Building2, Filter, ChevronDown } from 'lucide-react';
+import { Home, DollarSign,MessageSquare, FileText, Upload, Camera, LogOut, Download, CheckCircle, AlertCircle, Calendar, Droplet, CreditCard, X, Eye, Bell, AlertTriangle, Sparkles, Building2, Filter, ChevronDown } from 'lucide-react';
 import { locataireApi, EcheanceNotification } from '../services/api';
-
+import LocataireDemandes from '../components/LocataireDemandes';
 interface LocataireDashboardProps {
   user: any;
   onLogout: () => void;
@@ -17,7 +17,7 @@ export default function LocataireDashboard({ user, onLogout }: LocataireDashboar
   const [error, setError] = useState('');
   const [notifications, setNotifications] = useState<EcheanceNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(true);
-
+const [activeTab, setActiveTab] = useState<'paiements' | 'demandes'>('paiements');
   // Form state
   const [nouvelIndexEau, setNouvelIndexEau] = useState('');
   const [dateReleve, setDateReleve] = useState(new Date().toISOString().split('T')[0]);
@@ -36,6 +36,12 @@ export default function LocataireDashboard({ user, onLogout }: LocataireDashboar
   const [filtreMois, setFiltreMois] = useState<string>('tous');
   const [filtreMode, setFiltreMode] = useState<string>('tous');
   const [showFiltres, setShowFiltres] = useState(false);
+  
+useEffect(() => {
+  loadData();
+  checkEcheances();
+}, []);
+
 
   useEffect(() => {
     loadData();
@@ -306,6 +312,32 @@ export default function LocataireDashboard({ user, onLogout }: LocataireDashboar
             </div>
           </div>
         </div>
+        {/* Navigation par onglets */}
+ <div className="flex gap-2 pb-3 border-t border-slate-200/60 pt-3">
+            <button
+              onClick={() => setActiveTab('paiements')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-semibold ${
+                activeTab === 'paiements'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+                  : 'text-slate-600 hover:bg-white hover:text-blue-600 hover:shadow-md'
+              }`}
+            >
+              <DollarSign className="w-5 h-5" />
+              Paiements & Loyers
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('demandes')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-semibold ${
+                activeTab === 'demandes'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+                  : 'text-slate-600 hover:bg-white hover:text-blue-600 hover:shadow-md'
+              }`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              Mes Demandes
+            </button>
+          </div>
 
         {/* Vue d'ensemble des logements */}
         {contrats.length > 1 && (
@@ -362,7 +394,9 @@ export default function LocataireDashboard({ user, onLogout }: LocataireDashboar
             </div>
           </div>
         )}
-
+ {activeTab === 'demandes' && (
+          <LocataireDemandes user={user} />
+        )}
         {/* Sélecteur de logement */}
         {contrats.length > 0 && (
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl p-6 border border-slate-200/50">
@@ -1024,7 +1058,9 @@ export default function LocataireDashboard({ user, onLogout }: LocataireDashboar
           )}
         </div>
       </div>
-
+{activeTab === 'demandes' && (
+  <LocataireDemandes user={user} />
+)}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }

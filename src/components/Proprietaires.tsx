@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { UserCircle, Plus, Edit2, Phone, Mail, MapPin, Search, Filter, X, ArrowUpDown } from 'lucide-react';
+import { UserCircle, Plus, Edit2, Phone, Mail, MapPin, Search, Filter, X, ArrowUpDown, Grid3x3, List } from 'lucide-react';
 import api, { Proprietaire } from '../services/api';
 
 export default function Proprietaires() {
@@ -17,6 +17,7 @@ export default function Proprietaires() {
   });
   const [sortBy, setSortBy] = useState<'nom' | 'telephone'>('nom');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
   useEffect(() => {
     loadProprietaires();
@@ -157,22 +158,43 @@ export default function Proprietaires() {
             />
           </div>
 
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              showFilters || hasActiveFilters
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Filter className="w-5 h-5" />
-            Filtres
-            {hasActiveFilters && !showFilters && (
-              <span className="bg-white text-blue-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                !
-              </span>
-            )}
-          </button>
+          <div className="flex gap-2">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
+                  viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('card')}
+                className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
+                  viewMode === 'card' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                showFilters || hasActiveFilters
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Filter className="w-5 h-5" />
+              Filtres
+              {hasActiveFilters && !showFilters && (
+                <span className="bg-white text-blue-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  !
+                </span>
+              )}
+            </button>
+          </div>
 
           {hasActiveFilters && (
             <button
@@ -200,7 +222,7 @@ export default function Proprietaires() {
               </select>
             </div>
 
-              <div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe téléphone</label>
               <select
                 value={filters.phonePrefix}
@@ -249,7 +271,7 @@ export default function Proprietaires() {
           <h2 className="text-xl font-semibold mb-4 text-gray-800">
             {editingId ? 'Modifier le propriétaire' : 'Nouveau propriétaire'}
           </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
@@ -303,59 +325,125 @@ export default function Proprietaires() {
                 Annuler
               </button>
               <button
-                type="submit"
+                onClick={handleSubmit}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {editingId ? 'Mettre à jour' : 'Créer'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAndSortedProprietaires.map((proprietaire) => (
-          <div
-            key={proprietaire.id}
-            className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <UserCircle className="w-6 h-6 text-blue-600" />
+      {viewMode === 'card' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredAndSortedProprietaires.map((proprietaire) => (
+            <div
+              key={proprietaire.id}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-100 p-3 rounded-full">
+                    <UserCircle className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-800">{proprietaire.nom}</h3>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-800">{proprietaire.nom}</h3>
-                </div>
+                <button
+                  onClick={() => handleEdit(proprietaire)}
+                  className="text-gray-400 hover:text-blue-600 transition-colors"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => handleEdit(proprietaire)}
-                className="text-gray-400 hover:text-blue-600 transition-colors"
-              >
-                <Edit2 className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Phone className="w-4 h-4" />
-                <span className="text-sm">{proprietaire.telephone}</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Phone className="w-4 h-4" />
+                  <span className="text-sm">{proprietaire.telephone}</span>
+                </div>
+                {proprietaire.email && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-sm">{proprietaire.email}</span>
+                  </div>
+                )}
+                {proprietaire.adresse && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm">{proprietaire.adresse}</span>
+                  </div>
+                )}
               </div>
-              {proprietaire.email && (
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Mail className="w-4 h-4" />
-                  <span className="text-sm">{proprietaire.email}</span>
-                </div>
-              )}
-              {proprietaire.adresse && (
-                <div className="flex items-center gap-2 text-gray-600">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-sm">{proprietaire.adresse}</span>
-                </div>
-              )}
             </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAndSortedProprietaires.map((proprietaire) => (
+                  <tr key={proprietaire.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-blue-100 p-2 rounded-full">
+                          <UserCircle className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <span className="font-medium text-gray-800">{proprietaire.nom}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Phone className="w-4 h-4" />
+                        <span>{proprietaire.telephone}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {proprietaire.email ? (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Mail className="w-4 h-4" />
+                          <span>{proprietaire.email}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {proprietaire.adresse ? (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
+                          <span className="line-clamp-2">{proprietaire.adresse}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <button
+                        onClick={() => handleEdit(proprietaire)}
+                        className="text-blue-600 hover:text-blue-700 transition-colors"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {filteredAndSortedProprietaires.length === 0 && (
         <div className="text-center py-12 bg-white rounded-xl shadow-md">

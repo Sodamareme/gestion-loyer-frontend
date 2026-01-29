@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Phone, Mail, Search, Key, RefreshCw, Eye, EyeOff, CheckCircle, Filter, ChevronDown, X } from 'lucide-react';
+import { Users, Plus, Edit2, Phone, Mail, Search, Key, RefreshCw, Eye, EyeOff, CheckCircle, Filter, ChevronDown, X, Grid3x3, List } from 'lucide-react';
 import api, { Locataire, CreateLocataireResponse, ResetPasswordResponse } from '../services/api';
 
 type SortOption = 'recent' | 'nom' | 'ancien';
@@ -16,6 +16,7 @@ export default function Locataires() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'particulier' | 'commerce'>('all');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
   // Gestion des identifiants
   const [showCredentials, setShowCredentials] = useState<{ [key: number]: boolean }>({});
@@ -253,11 +254,11 @@ export default function Locataires() {
 
       {/* Section Filtres */}
       <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="w-full flex items-center justify-between gap-3 p-4 bg-gradient-to-r from-gray-50 to-green-50 hover:bg-gray-100 transition-colors border-b border-gray-100"
-        >
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 p-4 bg-gradient-to-r from-gray-50 to-green-50 border-b border-gray-100">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
             <Filter className="w-5 h-5 text-green-600" />
             <span className="font-semibold text-gray-800">Filtres et recherche</span>
             {hasActiveFilters && (
@@ -265,9 +266,28 @@ export default function Locataires() {
                 {[searchTerm, typeFilter !== 'all', sortBy !== 'recent'].filter(Boolean).length}
               </span>
             )}
+            <ChevronDown className={`w-5 h-5 text-gray-600 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
+                viewMode === 'list' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('card')}
+              className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
+                viewMode === 'card' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Grid3x3 className="w-4 h-4" />
+            </button>
           </div>
-          <ChevronDown className={`w-5 h-5 text-gray-600 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-        </button>
+        </div>
 
         {showFilters && (
           <div className="p-6 space-y-4 border-b border-gray-100">
@@ -346,7 +366,7 @@ export default function Locataires() {
           <h2 className="text-xl font-semibold mb-4 text-gray-800">
             {editingId ? 'Modifier le locataire' : 'Nouveau locataire'}
           </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -448,128 +468,242 @@ export default function Locataires() {
                 Annuler
               </button>
               <button
-                type="submit"
+                onClick={handleSubmit}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
               >
                 {editingId ? 'Mettre à jour' : 'Créer le locataire'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
 
       {/* Liste des locataires */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredLocataires.length === 0 ? (
-          <div className="col-span-full text-center py-12 bg-white rounded-xl shadow-md">
-            <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">
-              {locataires.length === 0 ? 'Aucun locataire enregistré' : 'Aucun locataire ne correspond à vos critères'}
-            </p>
-            {locataires.length > 0 && (
-              <p className="text-sm text-gray-400 mt-2">Essayez de modifier vos filtres</p>
-            )}
-          </div>
-        ) : (
-          filteredLocataires.map((locataire) => (
-            <div
-              key={locataire.id}
-              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <Users className="w-6 h-6 text-green-600" />
+      {viewMode === 'card' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredLocataires.length === 0 ? (
+            <div className="col-span-full text-center py-12 bg-white rounded-xl shadow-md">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">
+                {locataires.length === 0 ? 'Aucun locataire enregistré' : 'Aucun locataire ne correspond à vos critères'}
+              </p>
+              {locataires.length > 0 && (
+                <p className="text-sm text-gray-400 mt-2">Essayez de modifier vos filtres</p>
+              )}
+            </div>
+          ) : (
+            filteredLocataires.map((locataire) => (
+              <div
+                key={locataire.id}
+                className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-100 p-3 rounded-full">
+                      <Users className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-800">{locataire.nom}</h3>
+                      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600 capitalize">
+                        {locataire.type || 'particulier'}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-gray-800">{locataire.nom}</h3>
-                    <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600 capitalize">
-                      {locataire.type || 'particulier'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setFormData(locataire);
-                    setEditingId(locataire.id);
-                    setShowForm(true);
-                  }}
-                  className="text-gray-400 hover:text-green-600 transition-colors"
-                  title="Modifier"
-                >
-                  <Edit2 className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Phone className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm">{locataire.telephone}</span>
-                </div>
-                {locataire.email && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Mail className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm truncate" title={locataire.email}>
-                      {locataire.email}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Identifiants de connexion */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                    <Key className="w-3 h-3" />
-                    Identifiants
-                  </span>
                   <button
-                    onClick={() => toggleShowCredentials(locataire.id)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                    title={showCredentials[locataire.id] ? 'Masquer' : 'Afficher'}
+                    onClick={() => {
+                      setFormData(locataire);
+                      setEditingId(locataire.id);
+                      setShowForm(true);
+                    }}
+                    className="text-gray-400 hover:text-green-600 transition-colors"
+                    title="Modifier"
                   >
-                    {showCredentials[locataire.id] ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    <Edit2 className="w-5 h-5" />
                   </button>
                 </div>
 
-                {showCredentials[locataire.id] && (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-2 mb-3">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Email de connexion</p>
-                      <p className="text-sm font-mono text-gray-800 break-all">
-                        {locataire.email}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Mot de passe par défaut</p>
-                      <p className="text-sm font-mono text-gray-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
-                        {locataire.telephone?.replace(/\s/g, '')}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 italic">
-                        (Téléphone sans espaces)
-                      </p>
-                    </div>
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">{locataire.telephone}</span>
                   </div>
-                )}
+                  {locataire.email && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Mail className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm truncate" title={locataire.email}>
+                        {locataire.email}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-                <button
-                  onClick={() => handleResetPassword(locataire.id)}
-                  disabled={resettingPassword === locataire.id}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Réinitialise le mot de passe au numéro de téléphone"
-                >
-                  <RefreshCw className={`w-4 h-4 ${resettingPassword === locataire.id ? 'animate-spin' : ''}`} />
-                  {resettingPassword === locataire.id ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
-                </button>
+                {/* Identifiants de connexion */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                      <Key className="w-3 h-3" />
+                      Identifiants
+                    </span>
+                    <button
+                      onClick={() => toggleShowCredentials(locataire.id)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title={showCredentials[locataire.id] ? 'Masquer' : 'Afficher'}
+                    >
+                      {showCredentials[locataire.id] ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {showCredentials[locataire.id] && (
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2 mb-3">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Email de connexion</p>
+                        <p className="text-sm font-mono text-gray-800 break-all">
+                          {locataire.email}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Mot de passe par défaut</p>
+                        <p className="text-sm font-mono text-gray-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
+                          {locataire.telephone?.replace(/\s/g, '')}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 italic">
+                          (Téléphone sans espaces)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => handleResetPassword(locataire.id)}
+                    disabled={resettingPassword === locataire.id}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Réinitialise le mot de passe au numéro de téléphone"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${resettingPassword === locataire.id ? 'animate-spin' : ''}`} />
+                    {resettingPassword === locataire.id ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
+                  </button>
+                </div>
               </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          {filteredLocataires.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">
+                {locataires.length === 0 ? 'Aucun locataire enregistré' : 'Aucun locataire ne correspond à vos critères'}
+              </p>
+              {locataires.length > 0 && (
+                <p className="text-sm text-gray-400 mt-2">Essayez de modifier vos filtres</p>
+              )}
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Identifiants</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredLocataires.map((locataire) => (
+                    <tr key={locataire.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-green-100 p-2 rounded-full">
+                            <Users className="w-5 h-5 text-green-600" />
+                          </div>
+                          <span className="font-medium text-gray-800">{locataire.nom}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600 capitalize">
+                          {locataire.type || 'particulier'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Phone className="w-4 h-4" />
+                          <span>{locataire.telephone}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {locataire.email ? (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Mail className="w-4 h-4" />
+                            <span className="truncate max-w-xs">{locataire.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleShowCredentials(locataire.id)}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            title={showCredentials[locataire.id] ? 'Masquer' : 'Afficher'}
+                          >
+                            {showCredentials[locataire.id] ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(locataire.id)}
+                            disabled={resettingPassword === locataire.id}
+                            className="text-orange-600 hover:text-orange-700 transition-colors disabled:opacity-50"
+                            title="Réinitialiser"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${resettingPassword === locataire.id ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
+                        {showCredentials[locataire.id] && (
+                          <div className="mt-2 bg-gray-50 rounded p-2 text-xs space-y-1">
+                            <div>
+                              <span className="text-gray-500">Email:</span>
+                              <p className="font-mono text-gray-800">{locataire.email}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">MDP:</span>
+                              <p className="font-mono text-gray-800">{locataire.telephone?.replace(/\s/g, '')}</p>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          onClick={() => {
+                            setFormData(locataire);
+                            setEditingId(locataire.id);
+                            setShowForm(true);
+                          }}
+                          className="text-green-600 hover:text-green-700 transition-colors"
+                          title="Modifier"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <style>{`
         @keyframes scale-in {

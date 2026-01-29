@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Plus, Calendar, CreditCard, User, Building2, Download, Search, Filter, X, ArrowUpDown } from 'lucide-react';
+import { DollarSign, Plus, Calendar, CreditCard, User, Building2, Download, Search, Filter, X, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
 import api, { Paiement, Contrat } from '../services/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL 
@@ -13,6 +13,7 @@ export default function Paiements() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -188,7 +189,31 @@ export default function Paiements() {
           <DollarSign className="w-8 h-8 text-green-600" />
           <h1 className="text-3xl font-bold text-gray-800">Paiements</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-gray-100 p-1.5 rounded-lg shadow-sm border border-gray-200">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2.5 rounded-md transition-all ${
+                viewMode === 'list'
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+              title="Vue liste"
+            >
+              <List className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2.5 rounded-md transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+              title="Vue grille"
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
+          </div>
           <button
             onClick={() => api.paiements.downloadHistoriquePDF()}
             className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
@@ -468,60 +493,64 @@ export default function Paiements() {
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
         {filteredAndSortedPaiements.map((paiement) => (
-          <div
-            key={paiement.id}
-            className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex-1 space-y-3">
+          viewMode === 'grid' ? (
+            // Vue Grille (Card)
+            <div
+              key={paiement.id}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-xl transition-all duration-300"
+            >
+              <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="bg-green-100 p-2 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-green-600" />
+                  <div className="bg-green-100 p-2.5 rounded-lg">
+                    <DollarSign className="w-6 h-6 text-green-600" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-gray-800">Paiement #{paiement.id}</h3>
-                    <span className="text-xs text-gray-500">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-gray-800">Paiement #{paiement.id}</h3>
+                    <span className="text-xs text-gray-500 font-medium">
                       {new Date(paiement.mois_concerne).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
                     </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <User className="w-4 h-4" />
-                    <span>{paiement.locataire_nom}</span>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <User className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="font-medium">{paiement.locataire_nom}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Building2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="line-clamp-1">{paiement.bien_adresse}</span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Building2 className="w-4 h-4" />
-                    <span>{paiement.bien_adresse}</span>
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs">{new Date(paiement.date_paiement).toLocaleDateString('fr-FR')}</span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>{new Date(paiement.date_paiement).toLocaleDateString('fr-FR')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <CreditCard className="w-4 h-4" />
-                    <span className="capitalize">{paiement.mode_paiement.replace('_', ' ')}</span>
+                    <CreditCard className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs capitalize">{paiement.mode_paiement.replace('_', ' ')}</span>
                   </div>
                   {paiement.reference && (
-                    <div className="md:col-span-2 text-gray-600 text-xs">
-                      Réf: {paiement.reference}
+                    <div className="text-gray-600 text-xs pt-2 border-t border-gray-100">
+                      <span className="font-semibold">Réf:</span> {paiement.reference}
                     </div>
                   )}
                 </div>
-              </div>
-              <div className="flex flex-col items-end gap-3">
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600">
-                    {Number(paiement.montant_paye).toLocaleString('fr-FR')} FCFA
-                  </p>
-                  <p className="text-sm text-gray-500">Montant payé</p>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="text-center mb-3">
+                    <p className="text-2xl font-bold text-green-600">
+                      {Number(paiement.montant_paye).toLocaleString('fr-FR')} FCFA
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Montant payé</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex flex-col gap-2 pt-2">
                   <button
                     onClick={() => genererQuittance(paiement.id)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
                   >
                     <Download className="w-4 h-4" />
                     Quittance
@@ -539,14 +568,93 @@ export default function Paiements() {
                         reference: paiement.reference || '',
                       });
                     }}
-                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm"
+                    className="px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium"
                   >
                     Modifier
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            // Vue Liste
+            <div
+              key={paiement.id}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-100 p-2 rounded-lg">
+                      <DollarSign className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-800">Paiement #{paiement.id}</h3>
+                      <span className="text-xs text-gray-500">
+                        {new Date(paiement.mois_concerne).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <User className="w-4 h-4" />
+                      <span>{paiement.locataire_nom}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Building2 className="w-4 h-4" />
+                      <span>{paiement.bien_adresse}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(paiement.date_paiement).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <CreditCard className="w-4 h-4" />
+                      <span className="capitalize">{paiement.mode_paiement.replace('_', ' ')}</span>
+                    </div>
+                    {paiement.reference && (
+                      <div className="md:col-span-2 text-gray-600 text-xs">
+                        Réf: {paiement.reference}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-3">
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-green-600">
+                      {Number(paiement.montant_paye).toLocaleString('fr-FR')} FCFA
+                    </p>
+                    <p className="text-sm text-gray-500">Montant payé</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => genererQuittance(paiement.id)}
+                      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      Quittance
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowForm(true);
+                        setEditingId(paiement.id);
+                        setFormData({
+                          contrat_id: paiement.contrat_id,
+                          date_paiement: paiement.date_paiement.split('T')[0],
+                          mois_concerne: paiement.mois_concerne.substring(0, 7),
+                          montant_paye: paiement.montant_paye,
+                          mode_paiement: paiement.mode_paiement,
+                          reference: paiement.reference || '',
+                        });
+                      }}
+                      className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
         ))}
       </div>
 

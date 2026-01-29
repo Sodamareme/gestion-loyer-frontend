@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileText, Plus, Calendar, DollarSign, User, Building2, Edit2, X, Search, Filter, RotateCcw, Archive, ArchiveRestore } from 'lucide-react';
+import { FileText, Plus, Calendar, DollarSign, User, Building2, Edit2, X, Search, Filter, RotateCcw, Archive, ArchiveRestore, LayoutGrid, List } from 'lucide-react';
 import api, { Contrat, Bien, Locataire } from '../services/api';
 
 export default function Contrats() {
@@ -19,6 +19,7 @@ export default function Contrats() {
   const [sortBy, setSortBy] = useState<'date' | 'montant' | 'locataire'>('date');
   const [showFilters, setShowFilters] = useState(false);
   const [filterArchive, setFilterArchive] = useState<'actifs' | 'archives' | 'tous'>('actifs');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   useEffect(() => {
     loadData();
@@ -115,7 +116,6 @@ export default function Contrats() {
     const locataire = locataires.find(l => l.id === contrat.locataire_id);
     const type = locataire?.type || '';
 
-    // Formater les dates au format YYYY-MM-DD
     const formatDate = (date: string) => {
       if (!date) return '';
       return date.split('T')[0];
@@ -187,7 +187,6 @@ export default function Contrats() {
       finalData.tva = 0;
     }
 
-    // Formater les dates au format YYYY-MM-DD
     if (finalData.date_debut) {
       finalData.date_debut = finalData.date_debut.split('T')[0];
     }
@@ -226,18 +225,44 @@ export default function Contrats() {
           <FileText className="w-8 h-8 text-teal-600" />
           <h1 className="text-3xl font-bold text-gray-800">Contrats</h1>
         </div>
-        <button
-          onClick={() => {
-            setEditMode(false);
-            setEditingId(null);
-            setShowForm(true);
-            setFormData({});
-          }}
-          className="flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors shadow-md"
-        >
-          <Plus className="w-5 h-5" />
-          Nouveau contrat
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-gray-100 p-1.5 rounded-lg shadow-sm border border-gray-200">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2.5 rounded-md transition-all ${
+                viewMode === 'list'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+              title="Vue liste"
+            >
+              <List className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2.5 rounded-md transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+              title="Vue grille"
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              setEditMode(false);
+              setEditingId(null);
+              setShowForm(true);
+              setFormData({});
+            }}
+            className="flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors shadow-md"
+          >
+            <Plus className="w-5 h-5" />
+            Nouveau contrat
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
@@ -562,25 +587,26 @@ export default function Contrats() {
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
         {filteredAndSortedContrats.map((contrat) => (
-          <div
-            key={contrat.id}
-            className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex-1 space-y-3">
+          viewMode === 'grid' ? (
+            // Vue Grille (Card)
+            <div
+              key={contrat.id}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-xl transition-all duration-300"
+            >
+              <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="bg-teal-100 p-2 rounded-lg">
-                    <FileText className="w-5 h-5 text-teal-600" />
+                  <div className="bg-teal-100 p-2.5 rounded-lg">
+                    <FileText className="w-6 h-6 text-teal-600" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-gray-800">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-gray-800">
                       Contrat #{contrat.id}
                     </h3>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-1">
                       <span
-                        className={`text-xs px-2 py-1 rounded-full ${
+                        className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
                           (contrat.statut || contrat.contrat_statut) === 'actif'
                             ? 'bg-green-100 text-green-700'
                             : 'bg-gray-100 text-gray-700'
@@ -589,60 +615,62 @@ export default function Contrats() {
                         {contrat.statut || contrat.contrat_statut}
                       </span>
                       {(contrat.archive === true || contrat.archive === 1) && (
-                        <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 font-semibold">
                           Archivé
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <User className="w-4 h-4" />
-                    <span>{contrat.locataire_nom}</span>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <User className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                    <span className="font-medium">{contrat.locataire_nom}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Building2 className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                    <span className="line-clamp-1">{contrat.bien_adresse}</span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Building2 className="w-4 h-4" />
-                    <span>{contrat.bien_adresse}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      {new Date(contrat.date_debut).toLocaleDateString('fr-FR')} -{' '}
-                      {new Date(contrat.date_fin).toLocaleDateString('fr-FR')}
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs">
+                      {new Date(contrat.date_debut).toLocaleDateString('fr-FR')} - {new Date(contrat.date_fin).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <DollarSign className="w-4 h-4" />
-                    <span>Jour {contrat.jour_paiement} du mois</span>
+                    <DollarSign className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs">Jour {contrat.jour_paiement} du mois</span>
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-col items-end gap-3">
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-teal-600">
-                    {Number(contrat.montant_loyer).toLocaleString('fr-FR')} FCFA
-                  </p>
-                  <p className="text-sm text-gray-500">Loyer mensuel</p>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="text-center mb-3">
+                    <p className="text-2xl font-bold text-teal-600">
+                      {Number(contrat.montant_loyer).toLocaleString('fr-FR')} FCFA
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Loyer mensuel</p>
+                  </div>
+                  {contrat.montant_caution > 0 && (
+                    <p className="text-xs text-gray-600 text-center mb-3">
+                      Caution: {Number(contrat.montant_caution).toLocaleString('fr-FR')} FCFA
+                    </p>
+                  )}
                 </div>
-                {contrat.montant_caution > 0 && (
-                  <p className="text-sm text-gray-600">
-                    Caution: {Number(contrat.montant_caution).toLocaleString('fr-FR')} FCFA
-                  </p>
-                )}
-                <div className="flex gap-2">
+
+                <div className="flex flex-col gap-2 pt-2">
                   {!(contrat.archive === true || contrat.archive === 1) ? (
                     <>
                       <button
                         onClick={() => handleEdit(contrat)}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                        className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
                       >
                         <Edit2 className="w-4 h-4" />
                         Modifier
                       </button>
                       <button
                         onClick={() => handleArchive(contrat.id!)}
-                        className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                        className="flex items-center justify-center gap-2 bg-orange-600 text-white px-4 py-2.5 rounded-lg hover:bg-orange-700 transition-all text-sm font-medium"
                       >
                         <Archive className="w-4 h-4" />
                         Archiver
@@ -651,7 +679,7 @@ export default function Contrats() {
                   ) : (
                     <button
                       onClick={() => handleUnarchive(contrat.id!)}
-                      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition-all text-sm font-medium"
                     >
                       <ArchiveRestore className="w-4 h-4" />
                       Désarchiver
@@ -660,7 +688,106 @@ export default function Contrats() {
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            // Vue Liste
+            <div
+              key={contrat.id}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-teal-100 p-2 rounded-lg">
+                      <FileText className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-800">
+                        Contrat #{contrat.id}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            (contrat.statut || contrat.contrat_statut) === 'actif'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {contrat.statut || contrat.contrat_statut}
+                        </span>
+                        {(contrat.archive === true || contrat.archive === 1) && (
+                          <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+                            Archivé
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <User className="w-4 h-4" />
+                      <span>{contrat.locataire_nom}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Building2 className="w-4 h-4" />
+                      <span>{contrat.bien_adresse}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        {new Date(contrat.date_debut).toLocaleDateString('fr-FR')} -{' '}
+                        {new Date(contrat.date_fin).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <DollarSign className="w-4 h-4" />
+                      <span>Jour {contrat.jour_paiement} du mois</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-3">
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-teal-600">
+                      {Number(contrat.montant_loyer).toLocaleString('fr-FR')} FCFA
+                    </p>
+                    <p className="text-sm text-gray-500">Loyer mensuel</p>
+                  </div>
+                  {contrat.montant_caution > 0 && (
+                    <p className="text-sm text-gray-600">
+                      Caution: {Number(contrat.montant_caution).toLocaleString('fr-FR')} FCFA
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    {!(contrat.archive === true || contrat.archive === 1) ? (
+                      <>
+                        <button
+                          onClick={() => handleEdit(contrat)}
+                          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleArchive(contrat.id!)}
+                          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                        >
+                          <Archive className="w-4 h-4" />
+                          Archiver
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleUnarchive(contrat.id!)}
+                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      >
+                        <ArchiveRestore className="w-4 h-4" />
+                        Désarchiver
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
         ))}
       </div>
 

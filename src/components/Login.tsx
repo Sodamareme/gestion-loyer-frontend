@@ -1,17 +1,31 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LogIn, Lock, Mail, AlertCircle, Building2 } from 'lucide-react';
 import { auth } from '../services/api';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:3000/api';
+
 interface LoginProps {
   onLogin: (user: any) => void;
+  onShowInscription?: () => void;
 }
 
-export default function Login({ onLogin }: LoginProps) {
+export default function Login({ onLogin, onShowInscription }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hasPendingDemande, setHasPendingDemande] = useState(false);
+
+  useEffect(() => {
+    // Vérifier s'il y a une demande en attente
+    const pendingDemande = sessionStorage.getItem('pendingDemande');
+    if (pendingDemande) {
+      setHasPendingDemande(true);
+      console.log('✅ Demande en attente détectée');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,10 +33,58 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
+      console.log('🔐 Tentative de connexion...');
       const result = await auth.login(email, password);
+      console.log('✅ Connexion réussie, rôle:', result.user.role);
+      
+      // 🆕 Vérifier s'il y a une demande en attente
+      const pendingDemandeData = sessionStorage.getItem('pendingDemande');
+      
+      if (pendingDemandeData && result.user.role === 'locataire') {
+        console.log('📝 Demande en attente trouvée, soumission automatique...');
+        
+        try {
+          const demandeData = JSON.parse(pendingDemandeData);
+          console.log('📋 Données demande:', demandeData);
+          
+          // Soumettre la demande en tant que demande publique
+          const response = await fetch(`${API_BASE_URL}/demandes/publique`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(demandeData),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Demande soumise avec succès:', result.id);
+            
+            // Nettoyer le sessionStorage
+            sessionStorage.removeItem('pendingDemande');
+            sessionStorage.removeItem('selectedBienForDemande');
+            
+            // Afficher un message de succès
+            alert(`✅ Votre demande a été envoyée avec succès à ${result.agence_nom}!\n\nVous pouvez la consulter dans votre espace locataire dans "Mes demandes".`);
+          } else {
+            const errorData = await response.json();
+            console.error('❌ Erreur soumission demande:', errorData);
+            alert(`⚠️ Erreur lors de l'envoi de votre demande: ${errorData.error}\n\nVous pourrez créer une nouvelle demande depuis votre espace.`);
+          }
+        } catch (err) {
+          console.error('❌ Erreur traitement demande:', err);
+          alert('⚠️ Erreur lors de l\'envoi de votre demande.\n\nVous pourrez créer une nouvelle demande depuis votre espace.');
+        }
+      } else if (pendingDemandeData) {
+        console.log('⚠️ Demande en attente mais utilisateur non-locataire, suppression...');
+        sessionStorage.removeItem('pendingDemande');
+        sessionStorage.removeItem('selectedBienForDemande');
+      }
+      
       onLogin(result.user);
     } catch (err: any) {
-      setError(err.message || 'Erreur de connexion');
+      console.error('❌ Erreur connexion:', err);
+      setError(err.message || 'Email ou mot de passe incorrect');
     } finally {
       setLoading(false);
     }
@@ -39,6 +101,16 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">VOSCLES</h1>
             <p className="text-blue-100">Gestion Immobilière</p>
+            
+            {/* 🆕 Badge demande en attente */}
+            {hasPendingDemande && (
+              <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 backdrop-blur-md border border-amber-300 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-amber-200" />
+                <span className="text-xs font-semibold text-white">
+                  Demande en attente
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Form */}
@@ -104,7 +176,22 @@ export default function Login({ onLogin }: LoginProps) {
               </button>
             </form>
 
-            <div className="mt-6 text-center">
+            {/* 🆕 Section inscription */}
+            {onShowInscription && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-center text-sm text-gray-600 mb-3">
+                  Vous n'avez pas de compte ?
+                </p>
+                <button
+                  onClick={onShowInscription}
+                  className="w-full py-3 px-4 border-2 border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-all"
+                >
+                  Créer un compte
+                </button>
+              </div>
+            )}
+
+            <div className="mt-4 text-center">
               <p className="text-sm text-gray-600">
                 Problème de connexion ?{' '}
                 <a href="mailto:brahimgueye@gmail.com" className="text-blue-600 hover:text-blue-700 font-medium">
@@ -119,6 +206,11 @@ export default function Login({ onLogin }: LoginProps) {
             <p className="text-xs text-gray-500">
               © 2024 VOSCLES - Tous droits réservés
             </p>
+            {hasPendingDemande && (
+              <p className="text-xs text-blue-600 mt-1 font-medium">
+                ✓ Votre demande sera envoyée après connexion
+              </p>
+            )}
           </div>
         </div>
       </div>
