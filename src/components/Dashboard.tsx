@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Home, Users, Building2, FileText, DollarSign, TrendingUp, Calendar, Target, AlertTriangle, Filter, X, Download, RefreshCw, ChevronDown } from 'lucide-react';
+import { Home, Users, Building2, FileText, DollarSign, TrendingUp, Calendar, Target, AlertTriangle, Filter, X, Download, RefreshCw, ChevronDown,User  } from 'lucide-react';
 import api from '../services/api';
-
+import ProfileSettings from '../components/ProfileSettings';
 interface Stats {
   totalProprietaires: number;
   totalLocataires: number;
@@ -31,14 +31,18 @@ interface Filters {
   typeBien: string;
   statut: string;
 }
+interface DashboardProps {
+  user?: any; // Ajoutez cette prop
+}
 
-export default function Dashboard() {
+export default function Dashboard({ user }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [proprietaires, setProprietaires] = useState<any[]>([]);
-  
+  const [showProfile, setShowProfile] = useState(false);
+
   const [filters, setFilters] = useState<Filters>({
     periode: 'mois_actuel',
     moisDebut: new Date().toISOString().slice(0, 7),
@@ -649,6 +653,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+       {showProfile && user && (
+        <ProfileSettings user={user} onClose={() => setShowProfile(false)} />
+      )}
       {/* En-tête avec actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -660,6 +667,14 @@ export default function Dashboard() {
         </div>
         
         <div className="flex items-center gap-2">
+            <button
+            onClick={() => setShowProfile(!showProfile)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <User className="w-4 h-4" />
+            <span className="text-sm">Mon Profil</span>
+          </button>
+       
           <button
             onClick={() => loadStats()}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

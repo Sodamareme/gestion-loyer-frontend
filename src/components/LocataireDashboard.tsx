@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Home, DollarSign,MessageSquare, FileText, Upload, Camera, LogOut, Download, CheckCircle, AlertCircle, Calendar, Droplet, CreditCard, X, Eye, Bell, AlertTriangle, Sparkles, Building2, Filter, ChevronDown } from 'lucide-react';
 import { locataireApi, EcheanceNotification } from '../services/api';
 import LocataireDemandes from '../components/LocataireDemandes';
+import LocataireDocuments from '../components/LocataireDocuments';
+import ProfileSettings from '../components/ProfileSettings';
+import { User } from 'lucide-react';
 interface LocataireDashboardProps {
   user: any;
   onLogout: () => void;
@@ -17,7 +20,7 @@ export default function LocataireDashboard({ user, onLogout }: LocataireDashboar
   const [error, setError] = useState('');
   const [notifications, setNotifications] = useState<EcheanceNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(true);
-const [activeTab, setActiveTab] = useState<'paiements' | 'demandes'>('paiements');
+const [activeTab, setActiveTab] = useState<'paiements' | 'demandes' | 'documents'| 'profil'>('paiements');
   // Form state
   const [nouvelIndexEau, setNouvelIndexEau] = useState('');
   const [dateReleve, setDateReleve] = useState(new Date().toISOString().split('T')[0]);
@@ -29,7 +32,7 @@ const [activeTab, setActiveTab] = useState<'paiements' | 'demandes'>('paiements'
   const [photoEauPreview, setPhotoEauPreview] = useState<string | null>(null);
   const [photoPaiementPreview, setPhotoPaiementPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
+const [showProfile, setShowProfile] = useState(false);
   // Filtres
   const [filtreBien, setFiltreBien] = useState<string>('tous');
   const [filtreAnnee, setFiltreAnnee] = useState<string>('tous');
@@ -300,6 +303,7 @@ useEffect(() => {
                     </span>
                   </button>
                 )}
+
                 
                 <button
                   onClick={onLogout}
@@ -308,6 +312,16 @@ useEffect(() => {
                   <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                   <span className="hidden sm:inline">Déconnexion</span>
                 </button>
+              <button
+  onClick={() => setShowProfile(!showProfile)}
+  className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-700 rounded-2xl hover:bg-slate-200 transition-all font-semibold"
+>
+  <User className="w-5 h-5" />
+  <span className="hidden sm:inline">Mon Profil</span>
+</button>
+{showProfile && (
+  <ProfileSettings user={user} onClose={() => setShowProfile(false)} />
+)}
               </div>
             </div>
           </div>
@@ -337,6 +351,17 @@ useEffect(() => {
               <MessageSquare className="w-5 h-5" />
               Mes Demandes
             </button>
+                            <button
+  onClick={() => setActiveTab('documents')}
+  className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-semibold ${
+    activeTab === 'documents'
+      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+      : 'text-slate-600 hover:bg-white hover:text-blue-600 hover:shadow-md'
+  }`}
+>
+  <FileText className="w-5 h-5" />
+  Mes Documents
+</button>
           </div>
 
         {/* Vue d'ensemble des logements */}
@@ -1060,7 +1085,10 @@ useEffect(() => {
       </div>
 {activeTab === 'demandes' && (
   <LocataireDemandes user={user} />
+)}{activeTab === 'documents' && (
+  <LocataireDocuments />
 )}
+
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }

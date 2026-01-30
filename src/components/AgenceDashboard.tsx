@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { FileDown } from 'lucide-react';
 import { 
   Building2, Home, Users, FileText, LogOut, MessageSquare,
-  TrendingUp, Activity, MapPin, Phone, Mail,
+  TrendingUp, Activity, MapPin, Phone, Mail,User,
   CheckCircle, AlertCircle, Clock, Plus, Edit2, Trash2, X, Upload, Archive
 } from 'lucide-react';
 import api, { auth, Contrat } from '../services/api';
 import AgenceDemandes from '../components/AgenceDemandes';
 import AgenceContratForm from '../components/AgenceContratForm';
 import AgenceDocuments from '../components/AgenceDocuments'; 
+import ProfileSettings from '../components/ProfileSettings';
 const API_BASE_URL = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api`
   : 'http://localhost:3000/api';
@@ -75,7 +76,7 @@ const AgenceDashboard = ({ user, onLogout }: AgenceDashboardProps) => {
   const [contrats, setContrats] = useState<Contrat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'biens' | 'proprietaires' | 'contrats' |'documents' |'demandes'>('overview');
+const [activeTab, setActiveTab] = useState<'overview' | 'biens' | 'proprietaires' | 'contrats' | 'documents' | 'demandes' | 'profil'>('overview');
   const [showForm, setShowForm] = useState(false);
   const [showProprietaireForm, setShowProprietaireForm] = useState(false);
   const [showContratForm, setShowContratForm] = useState(false);
@@ -89,7 +90,7 @@ const AgenceDashboard = ({ user, onLogout }: AgenceDashboardProps) => {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   const biensTypes = ['chambre', 'appartement', 'maison', 'studio', 'villa', 'bureau', 'commerce'] as const;
-
+const [showProfile, setShowProfile] = useState(false);
   useEffect(() => {
     if (user.agence_id) {
       loadDashboardData();
@@ -499,6 +500,7 @@ const AgenceDashboard = ({ user, onLogout }: AgenceDashboardProps) => {
                 <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                 <span className="text-sm hidden sm:inline">Déconnexion</span>
               </button>
+            
             </div>
           </div>
 
@@ -571,6 +573,18 @@ const AgenceDashboard = ({ user, onLogout }: AgenceDashboardProps) => {
               <MessageSquare className="w-4 h-4" />
               <span className="font-medium">Demandes</span>
             </button>
+            <button
+  onClick={() => setActiveTab('profil')}
+  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+    activeTab === 'profil'
+      ? 'bg-blue-600 text-white shadow-md'
+      : 'text-slate-600 hover:bg-white hover:text-blue-600'
+  }`}
+>
+  <User className="w-4 h-4" />
+  <span className="font-medium">Mon Profil</span>
+</button>
+            
           </div>
         </div>
       </nav>
@@ -1285,15 +1299,22 @@ const AgenceDashboard = ({ user, onLogout }: AgenceDashboardProps) => {
                 )}
               </div>
             )}
+            
           </div>
+          
         )}
+        
   {/* 🆕 DOCUMENTS - NOUVEAU TAB */}
         {activeTab === 'documents' && user.agence_id && (
           <AgenceDocuments agenceId={user.agence_id} />
         )}
         {/* DEMANDES */}
         {activeTab === 'demandes' && <AgenceDemandes />}
-        
+       {activeTab === 'profil' && (
+  <div className="space-y-6">
+    <ProfileSettings user={user} />
+  </div>
+)}
       </main>
 
       {/* Modal de confirmation de suppression */}

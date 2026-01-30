@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FileText, Plus, Calendar, DollarSign, User, Building2, Edit2, X, Search, Filter, RotateCcw, Archive, ArchiveRestore, LayoutGrid, List } from 'lucide-react';
 import api, { Contrat, Bien, Locataire } from '../services/api';
+const DOCUMENTS_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function Contrats() {
   const [contrats, setContrats] = useState<Contrat[]>([]);
@@ -57,7 +58,18 @@ export default function Contrats() {
       setLoading(false);
     }
   };
-
+ const handleGenerateContrat = async (contratId: number) => {
+    if (!confirm('Générer le PDF du contrat ?')) return;
+    
+    try {
+      const result = await api.contrats.genererContrat(contratId);
+      alert(`✅ ${result.message}`);
+      window.open(`${DOCUMENTS_BASE_URL}${result.url}`, '_blank');
+    } catch (error: any) {
+      console.error('Erreur génération contrat:', error);
+      alert(`❌ Erreur: ${error.message}`);
+    }
+  };
   const filteredAndSortedContrats = useMemo(() => {
     let filtered = [...contrats];
 
@@ -249,6 +261,7 @@ export default function Contrats() {
             >
               <LayoutGrid className="w-5 h-5" />
             </button>
+            
           </div>
           <button
             onClick={() => {
@@ -659,6 +672,13 @@ export default function Contrats() {
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2">
+                   <button
+                  onClick={() => handleGenerateContrat(contrat.id!)}
+                  className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-lg hover:bg-purple-700 transition-all text-sm font-medium"
+                >
+                  <FileText className="w-4 h-4" />
+                  Générer PDF
+                </button>
                   {!(contrat.archive === true || contrat.archive === 1) ? (
                     <>
                       <button
@@ -684,6 +704,7 @@ export default function Contrats() {
                       <ArchiveRestore className="w-4 h-4" />
                       Désarchiver
                     </button>
+                    
                   )}
                 </div>
               </div>
@@ -757,6 +778,13 @@ export default function Contrats() {
                     </p>
                   )}
                   <div className="flex gap-2">
+                      <button
+                  onClick={() => handleGenerateContrat(contrat.id!)}
+                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                >
+                  <FileText className="w-4 h-4" />
+                  PDF
+                </button>
                     {!(contrat.archive === true || contrat.archive === 1) ? (
                       <>
                         <button

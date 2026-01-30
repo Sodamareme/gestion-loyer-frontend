@@ -201,6 +201,25 @@ export interface InscriptionResponse {
   message: string;
   info?: string;
 }
+export interface DocumentLocataire  {
+  id: number;
+  type: string; // 'quittance', 'avis_echeance', 'quittance_caution', 'contrat'
+  nom_fichier: string;
+  url: string;
+  contrat_id: number;
+  paiement_id?: number;
+  mois_concerne?: string;
+  montant?: number;
+  date_creation: string;
+  bien_adresse?: string;
+  numero_bien?: string;
+}
+
+export interface StatsDocument {
+  type: string;
+  nombre: number;
+  montant_total: number;
+}
 // Gestion du token
 export const auth = {
   setToken: (token: string) => {
@@ -543,7 +562,16 @@ export const locataireApi = {
   getDemandeDetails: (id: number): Promise<Demande> => {
     return authFetch(`${API_BASE_URL}/demandes/${id}`);
   },
+   getMesDocuments: (): Promise<DocumentLocataire []> => {
+    return authFetch(`${API_BASE_URL}/locataires/mes-documents`);
+  },
+
+
+   getStatsDocuments: (): Promise<StatsDocument[]> => {
+    return authFetch(`${API_BASE_URL}/locataires/mes-documents/stats`);
+  },
 };
+
 // Dans votre fichier api.ts, remplacez la section agences par ceci :
 
 
@@ -696,6 +724,37 @@ const api = {
   
   desarchiver: (id: number): Promise<{ message: string }> => {
     return authFetch(`${API_BASE_URL}/contrats/${id}/desarchiver`, {
+      method: 'POST',
+    });
+  },
+   genererContrat: async (contratId: number): Promise<{ message: string; url: string; numeroContrat: string }> => {
+    const token = auth.getToken();
+    const res = await fetch(`${API_BASE_URL}/pdf/contrat/${contratId}`, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+    });
+
+    if (res.status === 401) {
+      auth.logout();
+      throw new Error('Session expirée');
+    }
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Erreur génération contrat');
+    }
+
+    return res.json();
+  },
+    genererPdf: (id: number): Promise<{ 
+    message: string; 
+    url: string; 
+    numeroContrat: string; 
+  }> => {
+    return authFetch(`${API_BASE_URL}/contrats/${id}/generer-pdf`, {
       method: 'POST',
     });
   },
