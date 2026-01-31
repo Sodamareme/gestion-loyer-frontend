@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, UserCircle, Users, Building2, FileText, DollarSign, Menu, X, LogOut, Sparkles, CheckSquare, UserCheck, Building } from 'lucide-react';
+import { Home, UserCircle, Users, Building2, FileText, DollarSign, Menu, X, LogOut, Sparkles, CheckSquare, UserCheck, Building, User } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import Proprietaires from './components/Proprietaires';
 import Locataires from './components/Locataires';
@@ -18,8 +18,9 @@ import ValidationProprietaire from './components/ValidationProprietaire';
 import ValidationLocataire from './components/ValidationLocataire';
 import { auth, validationProprietaireApi, validationLocataireApi } from './services/api';
 import DemandePublique from './components/DemandePublique';
+import ProfileSettings from './components/ProfileSettings';
 
-type View = 'dashboard' | 'agences' | 'proprietaires' | 'validation-proprietaires' | 'validation-locataires' | 'locataires' | 'biens' | 'contrats' | 'paiements' | 'documents';
+type View = 'dashboard' | 'agences' | 'proprietaires' | 'validation-proprietaires' | 'validation-locataires' | 'locataires' | 'biens' | 'contrats' | 'paiements' | 'documents' | 'profile' | 'profile';
 
 interface User {
   id: number;
@@ -146,6 +147,8 @@ function App() {
         return <Paiements />;
       case 'documents':
         return <Documents />;
+      case 'profile':
+        return user ? <ProfileSettings user={user} /> : <Dashboard />;
       default:
         return <Dashboard />;
     }
@@ -162,20 +165,16 @@ function App() {
     );
   }
 
-  // ✅ CORRECTION : Gestion de DemandePublique AVANT le return de LandingPage
   if (!user) {
-    // Si on veut afficher DemandePublique
     if (showDemandePublique) {
       return (
         <DemandePublique 
           onRetour={() => setShowDemandePublique(false)}
           onShowLogin={() => {
-            console.log('📍 Redirection vers Login depuis DemandePublique');
             setShowDemandePublique(false);
             setShowLogin(true);
           }}
           onShowInscription={() => {
-            console.log('📍 Redirection vers Inscription depuis DemandePublique');
             setShowDemandePublique(false);
             setShowInscription(true);
           }}
@@ -200,7 +199,6 @@ function App() {
       />;
     }
     
-    // ✅ LandingPage avec la prop onShowDemandePublique
     return <LandingPage 
       onShowLogin={() => setShowLogin(true)}
       onShowInscription={() => setShowInscription(true)}
@@ -318,11 +316,10 @@ function App() {
           {/* Secondary navigation - desktop only */}
           <div className="hidden lg:block border-t border-slate-200/60 bg-gradient-to-b from-slate-50/50 to-transparent">
             <div className="flex items-center gap-2 py-3 overflow-x-auto">
+              {/* ✅ Navigation items (Agences à Documents) */}
               {navigation.slice(3).map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
-                const badgeCount = item.badgeCount || 0;
-                const showBadge = item.showBadge && badgeCount > 0 && !isActive;
                 
                 return (
                   <button
@@ -336,14 +333,22 @@ function App() {
                   >
                     <Icon className={`w-4 h-4 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
                     <span className="text-sm font-medium whitespace-nowrap">{item.name}</span>
-                    {showBadge && (
-                      <span className="absolute -top-1 -right-1 min-w-[18px] h-4 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                        {badgeCount}
-                      </span>
-                    )}
                   </button>
                 );
               })}
+              
+              {/* ✅ Bouton Mon Profil - APRÈS Documents */}
+              <button
+                onClick={() => setCurrentView('profile')}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-all group ${
+                  currentView === 'profile'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'
+                }`}
+              >
+                <User className={`w-4 h-4 ${currentView === 'profile' ? '' : 'group-hover:scale-110 transition-transform'}`} />
+                <span className="text-sm font-medium whitespace-nowrap">Mon Profil</span>
+              </button>
             </div>
           </div>
         </div>
@@ -361,6 +366,7 @@ function App() {
                 <span className="text-sm text-slate-700 font-semibold truncate flex-1">{user.email}</span>
               </div>
 
+              {/* ✅ Navigation items */}
               {navigation.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
@@ -394,6 +400,26 @@ function App() {
                 );
               })}
               
+              {/* ✅ Bouton Mon Profil mobile - APRÈS Documents */}
+              <button
+                onClick={() => {
+                  setCurrentView('profile');
+                  setMobileMenuOpen(false);
+                }}
+                className={`relative flex items-center gap-3 w-full px-5 py-4 rounded-2xl transition-all ${
+                  currentView === 'profile'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg'
+                    : 'text-slate-600 bg-slate-50 hover:bg-purple-50 hover:text-purple-600'
+                }`}
+              >
+                {currentView === 'profile' && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl blur opacity-30"></div>
+                )}
+                <User className="w-6 h-6 relative z-10" />
+                <span className="font-semibold relative z-10">Mon Profil</span>
+              </button>
+              
+              {/* ✅ Séparateur + Bouton Déconnexion */}
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-3 w-full px-5 py-4 rounded-2xl bg-gradient-to-r from-red-50 to-red-100 text-red-600 hover:from-red-100 hover:to-red-200 transition-all border-t-2 border-slate-200 mt-4 pt-6 font-semibold shadow-lg"

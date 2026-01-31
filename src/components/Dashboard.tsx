@@ -667,13 +667,7 @@ export default function Dashboard({ user }: DashboardProps) {
         </div>
         
         <div className="flex items-center gap-2">
-            <button
-            onClick={() => setShowProfile(!showProfile)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <User className="w-4 h-4" />
-            <span className="text-sm">Mon Profil</span>
-          </button>
+           
        
           <button
             onClick={() => loadStats()}
