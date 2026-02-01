@@ -91,50 +91,37 @@ const [activeTab, setActiveTab] = useState<'overview' | 'biens' | 'proprietaires
 
   const biensTypes = ['chambre', 'appartement', 'maison', 'studio', 'villa', 'bureau', 'commerce'] as const;
 const [showProfile, setShowProfile] = useState(false);
-  useEffect(() => {
-    if (user.agence_id) {
-      loadDashboardData();
-      loadContrats();
-    }
-  }, [user.agence_id]);
+useEffect(() => {
+  if (user.agence_id) {
+    console.log('✅ agence_id présent:', user.agence_id);
+    loadDashboardData();
+    loadContrats();
+  } else {
+    console.error('❌ agence_id manquant dans user:', user);
+    setError('Aucune agence associée à ce compte. Veuillez vous reconnecter.');
+    setLoading(false);
+  }
+}, [user.agence_id]);
 
-  const loadDashboardData = async () => {
-    if (!user.agence_id) {
-      console.log('⚠️ agence_id manquant dans user:', user);
-      
-      try {
-        console.log('🔄 Tentative de récupération des données utilisateur...');
-        const result = await auth.getCurrentUser();
-        
-        console.log('📦 Résultat getCurrentUser:', result);
-        
-        if (result && result.user && result.user.agence_id) {
-          console.log('✅ agence_id trouvé dans getCurrentUser:', result.user.agence_id);
-          window.location.reload();
-          return;
-        } else {
-          console.log('❌ agence_id toujours absent après getCurrentUser');
-        }
-      } catch (err) {
-        console.error('❌ Erreur récupération user:', err);
-      }
-      
-      setError('Aucune agence associée à ce compte. Veuillez vérifier que votre compte est correctement configuré.');
-      setLoading(false);
-      return;
-    }
+ const loadDashboardData = async () => {
+  if (!user.agence_id) {
+    console.error('❌ agence_id manquant dans user:', user);
+    setError('Aucune agence associée à ce compte. Veuillez vous reconnecter.');
+    setLoading(false);
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    setError(null);
     
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('🔍 Chargement des données pour agence_id:', user.agence_id);
-      
-      const [statsData, biensData, propsData] = await Promise.all([
-        api.biens.getStatsByAgence(user.agence_id),
-        api.biens.getAll(user.agence_id),
-        api.agenceProprietaires.getAll()
-      ]);
+    console.log('🔍 Chargement des données pour agence_id:', user.agence_id);
+    
+    const [statsData, biensData, propsData] = await Promise.all([
+      api.biens.getStatsByAgence(user.agence_id),
+      api.biens.getAll(user.agence_id),
+      api.agenceProprietaires.getAll()
+    ]);
       
       console.log('📊 Stats reçues:', statsData);
       console.log('🏢 Biens reçus:', biensData.length, 'biens');
@@ -154,13 +141,13 @@ const [showProfile, setShowProfile] = useState(false);
       setStats(normalizedStats);
       setBiens(biensData);
       setProprietaires(propsData);
-    } catch (error) {
-      console.error('❌ Erreur chargement dashboard:', error);
-      setError(error instanceof Error ? error.message : 'Erreur de chargement des données');
-    } finally {
-      setLoading(false);
-    }
-  };
+     } catch (error) {
+    console.error('❌ Erreur chargement dashboard:', error);
+    setError(error instanceof Error ? error.message : 'Erreur de chargement');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const loadContrats = async () => {
     try {
