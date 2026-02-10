@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Upload, AlertCircle, CheckCircle, Building2, ArrowLeft } from 'lucide-react';
+import { UserPlus, Upload, AlertCircle, CheckCircle, Building2, ArrowLeft, X } from 'lucide-react';
 import { inscriptionApi } from '../services/api';
 
 interface InscriptionPageProps {
@@ -19,83 +19,112 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
     adresse: '',
     type: 'particulier'
   });
-  const [carteIdentite, setCarteIdentite] = useState<File | null>(null);
+
+  const [carteIdentiteRecto, setCarteIdentiteRecto] = useState<File | null>(null);
+  const [carteIdentiteVerso, setCarteIdentiteVerso] = useState<File | null>(null);
+  const [previewRecto, setPreviewRecto] = useState<string>('');
+  const [previewVerso, setPreviewVerso] = useState<string>('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [hasPendingDemande, setHasPendingDemande] = useState(false);
 
   useEffect(() => {
-    // Vérifier s'il y a une demande en attente
     const pendingDemande = sessionStorage.getItem('pendingDemande');
     if (pendingDemande) {
       setHasPendingDemande(true);
-      console.log('✅ Demande en attente détectée sur inscription');
     }
   }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, side: 'recto' | 'verso') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError(`Le fichier ${side} est trop volumineux. Taille maximale : 5MB`);
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      setError(`Type non accepté pour le ${side}. Utilisez JPEG, PNG ou PDF`);
+      return;
+    }
+
+    setError('');
+
+    const setFile = side === 'recto' ? setCarteIdentiteRecto : setCarteIdentiteVerso;
+    const setPreview = side === 'recto' ? setPreviewRecto : setPreviewVerso;
+
+    setFile(file);
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => setPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setPreview('');
+    }
+  };
+
+  const removeFile = (side: 'recto' | 'verso') => {
+    if (side === 'recto') {
+      setCarteIdentiteRecto(null);
+      setPreviewRecto('');
+    } else {
+      setCarteIdentiteVerso(null);
+      setPreviewVerso('');
+    }
+  };
 
   const handleSubmit = async () => {
     setError('');
     setSuccess('');
 
-    // Validation
-    if (!formData.prenom || !formData.nom || !formData.date_naissance || 
-        !formData.lieu_naissance || !formData.numero_cni || 
-        !formData.telephone || !formData.email || !carteIdentite) {
+    if (!formData.prenom || !formData.nom || !formData.date_naissance ||
+        !formData.lieu_naissance || !formData.numero_cni ||
+        !formData.telephone || !formData.email) {
       setError('Tous les champs marqués d\'un * sont obligatoires');
+      return;
+    }
+
+    if (!carteIdentiteRecto || !carteIdentiteVerso) {
+      setError('Les deux photos de la carte d\'identité sont obligatoires (recto et verso)');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Créer le FormData
       const formDataToSend = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value);
       });
-      
-      formDataToSend.append('carte_identite', carteIdentite);
 
-      console.log('📝 Inscription en cours, type:', userType);
+      formDataToSend.append('carte_identite_recto', carteIdentiteRecto);
+      formDataToSend.append('carte_identite_verso', carteIdentiteVerso);
 
-      // Utiliser l'API appropriée selon le type d'utilisateur
-      const response = userType === 'locataire' 
+      const response = userType === 'locataire'
         ? await inscriptionApi.inscrireLocataire(formDataToSend)
         : await inscriptionApi.inscrireProprietaire(formDataToSend);
 
-      console.log('✅ Inscription réussie');
-      setSuccess(response.message);
-      
-      // 🆕 Afficher les informations importantes
-      if (response.info) {
-        alert(`✅ Inscription réussie!\n\n${response.info}\n\nVous allez être redirigé vers la connexion pour vous connecter.`);
-      }
-
       // Réinitialiser le formulaire
       setFormData({
-        prenom: '',
-        nom: '',
-        date_naissance: '',
-        lieu_naissance: '',
-        numero_cni: '',
-        telephone: '',
-        email: '',
-        adresse: '',
-        type: 'particulier'
+        prenom: '', nom: '', date_naissance: '', lieu_naissance: '',
+        numero_cni: '', telephone: '', email: '', adresse: '', type: 'particulier'
       });
-      setCarteIdentite(null);
-
-      // 🆕 IMPORTANT : Ne supprimer que selectedBienForDemande
-      // Garder pendingDemande pour qu'elle soit soumise après connexion
+      setCarteIdentiteRecto(null);
+      setCarteIdentiteVerso(null);
+      setPreviewRecto('');
+      setPreviewVerso('');
       sessionStorage.removeItem('selectedBienForDemande');
-      
-      console.log('📋 pendingDemande conservée pour après connexion');
 
-      // Redirection vers login après 2 secondes
+      // Afficher l'écran de succès, puis rediriger après 3s
+      setSuccess(response.message || 'Compte créé avec succès !');
       setTimeout(() => {
         onBackToLogin();
-      }, 2000);
+      }, 3000);
 
     } catch (err: any) {
       console.error('❌ Erreur inscription:', err);
@@ -105,11 +134,105 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
     }
   };
 
+  const UploadZone = ({
+    side, file, preview
+  }: { side: 'recto' | 'verso'; file: File | null; preview: string }) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Face <span className="font-bold">{side.toUpperCase()}</span> *
+      </label>
+
+      {file ? (
+        <div className="relative border-2 border-green-400 bg-green-50 rounded-lg p-3">
+          <button
+            type="button"
+            onClick={() => removeFile(side)}
+            className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full transition-colors z-10"
+          >
+            <X className="w-4 h-4 text-red-600" />
+          </button>
+          {preview ? (
+            <img src={preview} alt={`Aperçu ${side}`} className="max-h-36 mx-auto rounded object-contain" />
+          ) : (
+            <div className="flex items-center gap-3 py-2 pr-6">
+              <Upload className="w-8 h-8 text-green-600 flex-shrink-0" />
+              <span className="text-sm text-green-700 font-medium truncate">{file.name}</span>
+            </div>
+          )}
+          <p className="text-center text-xs text-green-600 font-medium mt-2">
+            ✓ {side === 'recto' ? 'Recto' : 'Verso'} chargé
+          </p>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+          <Upload className="w-8 h-8 text-gray-400 mb-2" />
+          <span className="text-sm font-medium text-gray-600">
+            Cliquez pour le <strong>{side.toUpperCase()}</strong>
+          </span>
+          <span className="text-xs text-gray-400 mt-1">JPG, PNG ou PDF — Max 5MB</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,application/pdf"
+            onChange={(e) => handleFileChange(e, side)}
+            className="hidden"
+          />
+        </label>
+      )}
+    </div>
+  );
+
+  // ✅ Écran de succès plein écran — remplace tout le formulaire
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center">
+
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Compte créé avec succès !
+          </h2>
+
+          <p className="text-gray-600 mb-1">{success}</p>
+          <p className="text-sm text-gray-500 mb-6">
+            Vos identifiants ont été envoyés par email.
+          </p>
+
+          {hasPendingDemande && (
+            <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-700 font-medium">
+                ✓ Votre demande sera envoyée automatiquement après connexion
+              </p>
+            </div>
+          )}
+
+          {/* Indicateur de redirection */}
+          <div className="flex items-center justify-center gap-3 p-3 bg-blue-50 rounded-lg mb-5">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent flex-shrink-0"></div>
+            <p className="text-sm text-blue-700 font-medium">
+              Redirection vers la connexion...
+            </p>
+          </div>
+
+          {/* Lien pour aller directement sans attendre */}
+          <button
+            onClick={onBackToLogin}
+            className="text-sm text-blue-600 hover:text-blue-800 font-semibold underline underline-offset-2"
+          >
+            Aller à la connexion maintenant →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          
+
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-center relative">
             <button
@@ -123,8 +246,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">VOSCLES</h1>
             <p className="text-blue-100">Créer un compte</p>
-            
-            {/* 🆕 Badge demande en attente */}
+
             {hasPendingDemande && (
               <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 backdrop-blur-md border-2 border-amber-300 rounded-xl">
                 <AlertCircle className="w-4 h-4 text-amber-200" />
@@ -170,28 +292,11 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
               </div>
             )}
 
-            {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-green-800 font-medium">{success}</p>
-                  <p className="text-xs text-green-700 mt-1">Redirection vers la connexion...</p>
-                  {hasPendingDemande && (
-                    <p className="text-xs text-green-700 mt-1 font-bold">
-                      ✓ Votre demande sera envoyée automatiquement après connexion
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="space-y-4">
               {/* Prénom et Nom */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prénom *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Prénom *</label>
                   <input
                     type="text"
                     value={formData.prenom}
@@ -201,9 +306,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nom *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
                   <input
                     type="text"
                     value={formData.nom}
@@ -217,9 +320,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
               {/* Date et Lieu de naissance */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date de naissance *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date de naissance *</label>
                   <input
                     type="date"
                     value={formData.date_naissance}
@@ -228,9 +329,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lieu de naissance *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Lieu de naissance *</label>
                   <input
                     type="text"
                     value={formData.lieu_naissance}
@@ -255,37 +354,24 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
                 />
               </div>
 
-              {/* Upload CNI */}
+              {/* Upload CNI Recto + Verso */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Carte d'identité (scan/photo) *
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Carte d'identité — recto et verso *
                 </label>
-                <label className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors">
-                  <Upload className="w-5 h-5 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-600">
-                    {carteIdentite ? carteIdentite.name : 'Choisir un fichier (JPG, PNG, PDF)'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => setCarteIdentite(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-                {carteIdentite && (
-                  <p className="mt-2 text-xs text-green-600 font-medium flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" />
-                    Fichier sélectionné : {carteIdentite.name}
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 mb-3">
+                  Les deux faces sont obligatoires — JPG, PNG ou PDF, max 5MB chacune
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <UploadZone side="recto" file={carteIdentiteRecto} preview={previewRecto} />
+                  <UploadZone side="verso" file={carteIdentiteVerso} preview={previewVerso} />
+                </div>
               </div>
 
               {/* Téléphone et Email */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Téléphone *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
                   <input
                     type="tel"
                     value={formData.telephone}
@@ -295,9 +381,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                   <input
                     type="email"
                     value={formData.email}
@@ -311,9 +395,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
               {/* Champs spécifiques */}
               {userType === 'proprietaire' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Adresse
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
                   <input
                     type="text"
                     value={formData.adresse}
@@ -326,9 +408,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
 
               {userType === 'locataire' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Type de locataire
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Type de locataire</label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({...formData, type: e.target.value})}
@@ -363,7 +443,7 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Vous avez déjà un compte ?{' '}
-                <button 
+                <button
                   onClick={onBackToLogin}
                   className="text-blue-600 hover:text-blue-700 font-medium"
                 >
@@ -373,12 +453,10 @@ export default function InscriptionPage({ onBackToLogin }: InscriptionPageProps)
             </div>
           </div>
 
-          {/* Footer info */}
+          {/* Footer */}
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
             <p className="text-xs text-gray-500 text-center">
-              {userType === 'locataire' 
-                ? '📝 En attente de validation par l\'administrateur'
-                : '📝 En attente de validation par l\'administrateur'}
+              📝 En attente de validation par l'administrateur
             </p>
           </div>
         </div>

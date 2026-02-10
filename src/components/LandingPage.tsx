@@ -51,6 +51,11 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
   const [activeFeature, setActiveFeature] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
+  const [showAllBiens, setShowAllBiens] = useState(false);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -138,6 +143,9 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
     return matchSearch && matchType;
   });
 
+  // Limiter à 9 biens si on n'est pas en mode "voir tout"
+  const displayedBiens = showAllBiens ? filteredBiens : filteredBiens.slice(0, 9);
+
   const features = [
     {
       icon: Building2,
@@ -153,20 +161,6 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
       gradient: 'from-emerald-600 via-emerald-500 to-teal-500',
       shadowColor: 'shadow-emerald-500/20'
     },
-    // {
-    //   icon: Shield,
-    //   title: 'Sécurité Maximale',
-    //   description: 'Vos données protégées avec un chiffrement de niveau bancaire.',
-    //   gradient: 'from-slate-700 via-slate-600 to-slate-500',
-    //   shadowColor: 'shadow-slate-500/20'
-    // },
-    // {
-    //   icon: BarChart3,
-    //   title: 'Analyses Avancées',
-    //   description: 'KPIs personnalisés pour optimiser votre rentabilité.',
-    //   gradient: 'from-amber-600 via-amber-500 to-orange-500',
-    //   shadowColor: 'shadow-amber-500/20'
-    // },
     {
       icon: Users,
       title: 'Gestion Locataires',
@@ -240,24 +234,99 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
     const currentPhoto = validPhotos[currentPhotoIndex];
     const hasPhotos = validPhotos.length > 0;
 
+    const handleZoomIn = () => {
+      setImageZoom(prev => Math.min(prev + 0.5, 3));
+    };
+
+    const handleZoomOut = () => {
+      setImageZoom(prev => Math.max(prev - 0.5, 1));
+      if (imageZoom <= 1.5) {
+        setImagePosition({ x: 0, y: 0 });
+      }
+    };
+
+    const handleResetZoom = () => {
+      setImageZoom(1);
+      setImagePosition({ x: 0, y: 0 });
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if (imageZoom > 1) {
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX - imagePosition.x,
+          y: e.clientY - imagePosition.y
+        });
+      }
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+      if (isDragging && imageZoom > 1) {
+        setImagePosition({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    const handlePhotoChange = (index: number) => {
+      setCurrentPhotoIndex(index);
+      handleResetZoom();
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        // Scroll up - zoom in
+        setImageZoom(prev => Math.min(prev + 0.1, 3));
+      } else {
+        // Scroll down - zoom out
+        setImageZoom(prev => {
+          const newZoom = Math.max(prev - 0.1, 1);
+          if (newZoom <= 1) {
+            setImagePosition({ x: 0, y: 0 });
+          }
+          return newZoom;
+        });
+      }
+    };
+
     return (
       <div className="relative h-[28rem] bg-slate-950 rounded-t-3xl overflow-hidden">
-        {hasPhotos && currentPhoto ? (
-          <img
-            src={getImageUrl(currentPhoto)!}
-            alt={`${bien.numero_bien} - Photo ${currentPhotoIndex + 1}`}
-            className="w-full h-full object-cover"
-            onError={() => handleImageError(currentPhoto)}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 blur-3xl opacity-30 animate-pulse"></div>
-              <ImageIcon className="relative w-24 h-24 text-blue-400" />
+        <div 
+          className="w-full h-full overflow-hidden cursor-move"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+        >
+          {hasPhotos && currentPhoto ? (
+            <img
+              src={getImageUrl(currentPhoto)!}
+              alt={`${bien.numero_bien} - Photo ${currentPhotoIndex + 1}`}
+              className="w-full h-full object-contain transition-transform duration-200"
+              style={{
+                transform: `scale(${imageZoom}) translate(${imagePosition.x / imageZoom}px, ${imagePosition.y / imageZoom}px)`,
+                cursor: imageZoom > 1 ? 'move' : 'default'
+              }}
+              onError={() => handleImageError(currentPhoto)}
+              draggable={false}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 blur-3xl opacity-30 animate-pulse"></div>
+                <ImageIcon className="relative w-24 h-24 text-blue-400" />
+              </div>
+              <span className="text-slate-400 font-semibold mt-4 uppercase tracking-wider text-sm">Aucune photo</span>
             </div>
-            <span className="text-slate-400 font-semibold mt-4 uppercase tracking-wider text-sm">Aucune photo</span>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="absolute top-6 left-6">
           <span className="px-5 py-2.5 bg-white/95 backdrop-blur-xl rounded-full text-sm font-black text-slate-900 shadow-2xl border border-white/40">
@@ -265,8 +334,54 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
           </span>
         </div>
 
+        {/* Zoom Controls */}
+        {hasPhotos && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/95 backdrop-blur-xl rounded-full p-2 shadow-2xl border border-white/40">
+            <button
+              onClick={handleZoomOut}
+              disabled={imageZoom <= 1}
+              className="p-2 hover:bg-slate-100 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Dézoomer"
+            >
+              <svg className="w-5 h-5 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+              </svg>
+            </button>
+            
+            <div className="px-3 py-1 min-w-[60px] text-center">
+              <span className="text-sm font-black text-slate-900">{Math.round(imageZoom * 100)}%</span>
+            </div>
+            
+            <button
+              onClick={handleZoomIn}
+              disabled={imageZoom >= 3}
+              className="p-2 hover:bg-slate-100 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Zoomer"
+            >
+              <svg className="w-5 h-5 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+              </svg>
+            </button>
+            
+            {imageZoom > 1 && (
+              <button
+                onClick={handleResetZoom}
+                className="p-2 hover:bg-slate-100 rounded-full transition-all ml-1"
+                title="Réinitialiser"
+              >
+                <svg className="w-5 h-5 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+
         <button
-          onClick={() => setSelectedBien(null)}
+          onClick={() => {
+            setSelectedBien(null);
+            handleResetZoom();
+          }}
           className="absolute top-6 right-6 bg-white/95 backdrop-blur-xl hover:bg-white p-3.5 rounded-full transition-all shadow-2xl hover:scale-110 hover:rotate-90 border border-white/40 group"
         >
           <X className="w-5 h-5 text-slate-900" />
@@ -287,7 +402,7 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
                         ? 'ring-4 ring-white shadow-2xl scale-105'
                         : 'opacity-60 hover:opacity-100 hover:scale-105 ring-2 ring-white/20'
                     }`}
-                    onClick={() => setCurrentPhotoIndex(index)}
+                    onClick={() => handlePhotoChange(index)}
                     onError={() => handleImageError(photo)}
                   />
                 ) : null;
@@ -577,6 +692,9 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
                 </h2>
                 <p className="text-lg text-slate-600 font-semibold mt-3">
                   {filteredBiens.length} bien{filteredBiens.length > 1 ? 's' : ''} correspond{filteredBiens.length > 1 ? 'ent' : ''} à votre recherche
+                  {!showAllBiens && filteredBiens.length > 9 && (
+                    <span className="text-blue-600"> • Affichage de 9 biens</span>
+                  )}
                 </p>
               </div>
 
@@ -647,169 +765,207 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
               <p className="text-slate-500 font-semibold">Essayez de modifier vos filtres</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-              {filteredBiens.map((bien, idx) => {
-                const validPhotos = getValidPhotos(bien.photos);
-                return (
-                  <div
-                    key={bien.id}
-                    className="group relative bg-white rounded-[2rem] overflow-hidden border border-slate-200 hover:border-transparent hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-700 cursor-pointer"
-                    style={{ animationDelay: `${idx * 50}ms` }}
-                    onClick={() => {
-                      setSelectedBien(bien);
-                      setCurrentPhotoIndex(0);
-                    }}
-                  >
-                    {/* Gradient Border Effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-[2rem] -z-10 blur-sm"></div>
-                    
-                    {/* Image Section */}
-                    <div className="relative h-72 overflow-hidden">
-                      <BienImage bien={bien} className="group-hover:scale-125 transition-transform duration-1000 ease-out" />
-
-                      {/* Gradient Overlays */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500"></div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                {displayedBiens.map((bien, idx) => {
+                  const validPhotos = getValidPhotos(bien.photos);
+                  return (
+                    <div
+                      key={bien.id}
+                      className="group relative bg-white rounded-[2rem] overflow-hidden border border-slate-200 hover:border-transparent hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-700 cursor-pointer"
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                      onClick={() => {
+                        setSelectedBien(bien);
+                        setCurrentPhotoIndex(0);
+                        setImageZoom(1);
+                        setImagePosition({ x: 0, y: 0 });
+                      }}
+                    >
+                      {/* Gradient Border Effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-[2rem] -z-10 blur-sm"></div>
                       
-                      {/* Animated Shine Effect */}
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                      </div>
+                      {/* Image Section */}
+                      <div className="relative h-72 overflow-hidden">
+                        <BienImage bien={bien} className="group-hover:scale-125 transition-transform duration-1000 ease-out" />
 
-                      {/* Type Badge */}
-                      <div className="absolute top-5 left-5 transform group-hover:scale-110 transition-transform duration-300">
-                        <div className="px-5 py-2.5 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/50 flex items-center gap-2">
-                          <span className="text-2xl">{getTypeIcon(bien.type)}</span>
-                          <span className="text-xs font-black text-slate-900 uppercase tracking-[0.15em]">
-                            {bien.type}
-                          </span>
+                        {/* Gradient Overlays */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500"></div>
+                        
+                        {/* Animated Shine Effect */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                         </div>
-                      </div>
 
-                      {/* Favorite Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(bien.id);
-                        }}
-                        className="absolute top-5 right-5 p-3.5 bg-white/95 backdrop-blur-2xl rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-2xl border border-white/50 z-10"
-                      >
-                        <Heart
-                          className={`w-5 h-5 transition-all duration-300 ${
-                            favorites.has(bien.id)
-                              ? 'fill-red-500 text-red-500 scale-110'
-                              : 'text-slate-700 group-hover:text-red-500'
-                          }`}
-                        />
-                      </button>
-
-                      {/* Photo Counter */}
-                      {validPhotos.length > 0 && (
-                        <div className="absolute bottom-5 right-5 px-4 py-2.5 bg-slate-950/90 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl">
-                          <div className="flex items-center gap-2.5">
-                            <ImageIcon className="w-4 h-4 text-cyan-400" />
-                            <span className="text-xs font-black text-white uppercase tracking-wider">
-                              {validPhotos.length} {validPhotos.length > 1 ? 'Photos' : 'Photo'}
+                        {/* Type Badge */}
+                        <div className="absolute top-5 left-5 transform group-hover:scale-110 transition-transform duration-300">
+                          <div className="px-5 py-2.5 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/50 flex items-center gap-2">
+                            <span className="text-2xl">{getTypeIcon(bien.type)}</span>
+                            <span className="text-xs font-black text-slate-900 uppercase tracking-[0.15em]">
+                              {bien.type}
                             </span>
                           </div>
                         </div>
-                      )}
 
-                      {/* Bottom Info on Hover */}
-                      <div className="absolute bottom-0 left-0 right-0 p-6 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/90 backdrop-blur-xl rounded-xl">
-                              <Maximize className="w-4 h-4 text-white" />
-                              <span className="text-sm font-black text-white">{bien.surface}m²</span>
-                            </div>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-cyan-500/90 backdrop-blur-xl rounded-xl">
-                              <Home className="w-4 h-4 text-white" />
-                              <span className="text-sm font-black text-white">{bien.nombre_pieces} pcs</span>
+                        {/* Favorite Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(bien.id);
+                          }}
+                          className="absolute top-5 right-5 p-3.5 bg-white/95 backdrop-blur-2xl rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-2xl border border-white/50 z-10"
+                        >
+                          <Heart
+                            className={`w-5 h-5 transition-all duration-300 ${
+                              favorites.has(bien.id)
+                                ? 'fill-red-500 text-red-500 scale-110'
+                                : 'text-slate-700 group-hover:text-red-500'
+                            }`}
+                          />
+                        </button>
+
+                        {/* Photo Counter */}
+                        {validPhotos.length > 0 && (
+                          <div className="absolute bottom-5 right-5 px-4 py-2.5 bg-slate-950/90 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl">
+                            <div className="flex items-center gap-2.5">
+                              <ImageIcon className="w-4 h-4 text-cyan-400" />
+                              <span className="text-xs font-black text-white uppercase tracking-wider">
+                                {validPhotos.length} {validPhotos.length > 1 ? 'Photos' : 'Photo'}
+                              </span>
                             </div>
                           </div>
-                          <div className="p-3 bg-white/90 backdrop-blur-xl rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                            <Eye className="w-5 h-5 text-blue-600" />
+                        )}
+
+                        {/* Bottom Info on Hover */}
+                        <div className="absolute bottom-0 left-0 right-0 p-6 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/90 backdrop-blur-xl rounded-xl">
+                                <Maximize className="w-4 h-4 text-white" />
+                                <span className="text-sm font-black text-white">{bien.surface}m²</span>
+                              </div>
+                              <div className="flex items-center gap-2 px-4 py-2 bg-cyan-500/90 backdrop-blur-xl rounded-xl">
+                                <Home className="w-4 h-4 text-white" />
+                                <span className="text-sm font-black text-white">{bien.nombre_pieces} pcs</span>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-white/90 backdrop-blur-xl rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                              <Eye className="w-5 h-5 text-blue-600" />
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      {/* Content Section */}
+                      <div className="p-7 space-y-6">
+                        {/* Title */}
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
+                              {bien.numero_bien}
+                            </h3>
+                            <div className="px-3 py-1 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
+                              <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">
+                                Disponible
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-2.5">
+                            <div className="p-2 bg-slate-100 rounded-lg mt-0.5">
+                              <MapPin className="w-4 h-4 text-slate-500" />
+                            </div>
+                            <p className="text-sm font-semibold text-slate-600 line-clamp-2 leading-relaxed">
+                              {bien.adresse}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t-2 border-slate-100">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-blue-100 rounded-lg">
+                                <Maximize className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Surface</span>
+                            </div>
+                            <p className="text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                              {bien.surface}m²
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-cyan-100 rounded-lg">
+                                <Home className="w-4 h-4 text-cyan-600" />
+                              </div>
+                              <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Pièces</span>
+                            </div>
+                            <p className="text-2xl font-black bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
+                              {bien.nombre_pieces}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* CTA Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBien(bien);
+                            setCurrentPhotoIndex(0);
+                            setImageZoom(1);
+                            setImagePosition({ x: 0, y: 0 });
+                          }}
+                          className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-600 hover:from-blue-700 hover:via-blue-600 hover:to-cyan-700 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-blue-500/30 hover:shadow-2xl hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 group/btn uppercase tracking-wider relative overflow-hidden"
+                        >
+                          {/* Button Shine Effect */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700"></div>
+                          
+                          <Eye className="w-5 h-5 relative z-10" />
+                          <span className="relative z-10">Voir les détails</span>
+                          <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform relative z-10" />
+                        </button>
+                      </div>
+
+                      {/* Hover Glow Effect */}
+                      <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-[2rem] opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-700 -z-20"></div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Content Section */}
-                    <div className="p-7 space-y-6">
-                      {/* Title */}
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">
-                            {bien.numero_bien}
-                          </h3>
-                          <div className="px-3 py-1 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
-                            <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">
-                              Disponible
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-2.5">
-                          <div className="p-2 bg-slate-100 rounded-lg mt-0.5">
-                            <MapPin className="w-4 h-4 text-slate-500" />
-                          </div>
-                          <p className="text-sm font-semibold text-slate-600 line-clamp-2 leading-relaxed">
-                            {bien.adresse}
-                          </p>
-                        </div>
-                      </div>
+              {/* Show More / Show Less Buttons */}
+              {!showAllBiens && filteredBiens.length > 9 && (
+                <div className="mt-16 text-center">
+                  <button
+                    onClick={() => setShowAllBiens(true)}
+                    className="group px-12 py-6 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-600 hover:from-blue-700 hover:via-blue-600 hover:to-cyan-700 text-white text-lg font-black rounded-2xl transition-all shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-105 inline-flex items-center gap-4 uppercase tracking-wider"
+                  >
+                    <Eye className="w-6 h-6" />
+                    Voir tous les {filteredBiens.length} biens
+                    <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                  </button>
+                  <p className="text-slate-600 font-semibold mt-4">
+                    {filteredBiens.length - 9} biens supplémentaires disponibles
+                  </p>
+                </div>
+              )}
 
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t-2 border-slate-100">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Maximize className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Surface</span>
-                          </div>
-                          <p className="text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            {bien.surface}m²
-                          </p>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="p-2 bg-cyan-100 rounded-lg">
-                              <Home className="w-4 h-4 text-cyan-600" />
-                            </div>
-                            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Pièces</span>
-                          </div>
-                          <p className="text-2xl font-black bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                            {bien.nombre_pieces}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* CTA Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedBien(bien);
-                          setCurrentPhotoIndex(0);
-                        }}
-                        className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-600 hover:from-blue-700 hover:via-blue-600 hover:to-cyan-700 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-blue-500/30 hover:shadow-2xl hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 group/btn uppercase tracking-wider relative overflow-hidden"
-                      >
-                        {/* Button Shine Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700"></div>
-                        
-                        <Eye className="w-5 h-5 relative z-10" />
-                        <span className="relative z-10">Voir les détails</span>
-                        <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform relative z-10" />
-                      </button>
-                    </div>
-
-                    {/* Hover Glow Effect */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-[2rem] opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-700 -z-20"></div>
-                  </div>
-                );
-              })}
-            </div>
+              {showAllBiens && filteredBiens.length > 9 && (
+                <div className="mt-16 text-center">
+                  <button
+                    onClick={() => {
+                      setShowAllBiens(false);
+                      document.getElementById('biens')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-10 py-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black rounded-2xl transition-all inline-flex items-center gap-3 uppercase tracking-wider"
+                  >
+                    Voir moins
+                    <ChevronDown className="w-5 h-5 rotate-180" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -940,106 +1096,6 @@ export default function LandingPage({ onShowLogin, onShowInscription, onShowDema
           </div>
         </div>
       </section>
-
-      {/* Features Section */}
-      {selectedBien && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 sm:p-6 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl max-h-[90vh] overflow-y-auto animate-scaleIn">
-            <BienImageGallery bien={selectedBien} />
-
-            <div className="p-10 sm:p-12 space-y-10">
-              <div>
-                <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4">{selectedBien.numero_bien}</h2>
-                <div className="flex items-center gap-3 text-slate-600">
-                  <MapPin className="w-6 h-6 text-blue-500" />
-                  <span className="text-lg font-semibold">{selectedBien.adresse}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl p-8 border-2 border-blue-100">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-lg">
-                      <Maximize className="w-7 h-7 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-black text-blue-900 uppercase tracking-wider">Surface</span>
-                  </div>
-                  <p className="text-4xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                    {selectedBien.surface} m²
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-3xl p-8 border-2 border-cyan-100">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-lg">
-                      <Home className="w-7 h-7 text-cyan-600" />
-                    </div>
-                    <span className="text-sm font-black text-cyan-900 uppercase tracking-wider">Pièces</span>
-                  </div>
-                  <p className="text-4xl font-black bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                    {selectedBien.nombre_pieces}
-                  </p>
-                </div>
-              </div>
-
-              {selectedBien.description && (
-                <div className="bg-slate-50 rounded-3xl p-8 border-2 border-slate-200">
-                  <h3 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                    <FileText className="w-5 h-5 text-slate-600" />
-                    Description
-                  </h3>
-                  <p className="text-slate-700 leading-relaxed font-medium text-lg">{selectedBien.description}</p>
-                </div>
-              )}
-
-              {selectedBien.proprietaire_nom && (
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl p-8 border-2 border-emerald-100">
-                  <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-                      <Users className="w-8 h-8 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-emerald-900 uppercase tracking-wider mb-1">Propriétaire</p>
-                      <p className="text-2xl font-black text-emerald-700">{selectedBien.proprietaire_nom}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-8 border-t-2 border-slate-200">
-                <button
-                  onClick={() => toggleFavorite(selectedBien.id)}
-                  className={`px-8 py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3 uppercase tracking-wider ${
-                    favorites.has(selectedBien.id)
-                      ? 'bg-gradient-to-r from-red-50 to-pink-50 text-red-600 border-2 border-red-200'
-                      : 'bg-slate-100 text-slate-700 border-2 border-slate-300 hover:border-red-200 hover:bg-red-50'
-                  }`}
-                >
-                  <Heart className={favorites.has(selectedBien.id) ? 'fill-current w-5 h-5' : 'w-5 h-5'} />
-                  {favorites.has(selectedBien.id) ? 'Retirer' : 'Ajouter'}
-                </button>
-
-                <button
-                  onClick={() => {
-                    sessionStorage.setItem('selectedBienForDemande', JSON.stringify({
-                      bien_id: selectedBien.id,
-                      numero_bien: selectedBien.numero_bien,
-                      adresse: selectedBien.adresse
-                    }));
-                    setSelectedBien(null);
-                    onShowDemandePublique?.();
-                  }}
-                  className="px-8 py-5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-2xl font-black transition-all shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 flex items-center justify-center gap-3 uppercase tracking-wider"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                  Contacter
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Features Section */}
       <section id="features" className="py-32 px-6 sm:px-8 lg:px-12 bg-gradient-to-b from-white via-slate-50 to-white scroll-mt-20">
